@@ -1,0 +1,15 @@
+{
+  "name": "unlockshield-subgraph",
+  "version": "1.0.0",
+  "description": "Goldsky subgraph for UnlockShield attestation indexing on Kite AI",
+  "scripts": {
+    "codegen": "graph codegen",
+    "build": "graph build",
+    "deploy:goldsky": "goldsky subgraph deploy unlockshield-attestations/v1 --path .",
+    "deploy:instant": "goldsky subgraph deploy unlockshield-attestations/v1 --from-abi --chain kite-ai-testnet"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "^0.60.0",
+    "@graphprotocol/graph-ts": "^0.31.0"
+  }
+}

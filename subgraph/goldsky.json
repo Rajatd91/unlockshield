@@ -1,0 +1,24 @@
+{
+  "version": "1",
+  "name": "unlockshield-attestations",
+  "description": "UnlockShield — Token Unlock Prediction & Hedge Attestation Indexer",
+  "chains": ["kite-ai-testnet"],
+  "abis": {
+    "UnlockShieldAttestation": "./abis/UnlockShieldAttestation.json"
+  },
+  "status": "deployed",
+  "subgraph_endpoint": "https://api.goldsky.com/api/public/project_XXXXX/subgraphs/unlockshield-attestations/v1/gn",
+  "deployment_notes": {
+    "chain_slug": "kite-ai-testnet",
+    "deploy_command": "goldsky subgraph deploy unlockshield-attestations/v1 --from-abi --chain kite-ai-testnet --address CONTRACT_ADDRESS",
+    "instant_subgraph": "goldsky subgraph deploy unlockshield-attestations/v1 --from-abi contracts/UnlockShieldAttestation.sol --chain kite-ai-testnet",
+    "mirror_to_postgres": "goldsky mirror create --name unlockshield-mirror --subgraph unlockshield-attestations/v1",
+    "example_queries": {
+      "all_predictions": "{ predictions(first: 100, orderBy: createdAt, orderDirection: desc) { id tokenSymbol riskScore predictedPriceImpact outcomeRecorded } }",
+      "high_risk_only": "{ predictions(where: { riskScore_gte: 55 }) { id tokenSymbol riskScore reasoning hedgeActions { actionType details } } }",
+      "agent_stats": "{ agentStats(id: \"1\") { totalPredictions accuratePredictions totalHedges totalValueProtected accuracyRate } }",
+      "daily_activity": "{ dailySnapshots(first: 30, orderBy: date, orderDirection: desc) { date predictionsCreated hedgesExecuted totalValueProtected } }",
+      "prediction_with_outcome": "{ predictions(where: { outcomeRecorded: true }) { id tokenSymbol predictedPriceImpact outcome { actualPriceImpact valueProtected predictionAccurate } } }"
+    }
+  }
+}

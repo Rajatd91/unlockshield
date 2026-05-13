@@ -1,0 +1,65 @@
+# UnlockShield Subgraph Schema — Goldsky on Kite AI
+# Indexes all attestation events for the prediction & hedge tracking dashboard
+
+type Prediction @entity {
+  id: ID!
+  predictionId: BigInt!
+  tokenSymbol: String!
+  unlockAmount: BigInt!
+  unlockTimestamp: BigInt!
+  riskScore: Int!
+  reasoning: String!
+  predictedPriceImpact: Int!
+  actualPriceImpact: Int
+  outcomeRecorded: Boolean!
+  createdAt: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+  hedgeActions: [HedgeAction!]! @derivedFrom(field: "prediction")
+  outcome: Outcome @derivedFrom(field: "prediction")
+}
+
+type HedgeAction @entity {
+  id: ID!
+  actionId: BigInt!
+  prediction: Prediction!
+  actionType: String!
+  details: String!
+  simulated: Boolean!
+  executedAt: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+}
+
+type Outcome @entity {
+  id: ID!
+  prediction: Prediction!
+  actualPriceImpact: Int!
+  valueProtected: BigInt!
+  recordedAt: BigInt!
+  blockNumber: BigInt!
+  txHash: Bytes!
+  predictionAccurate: Boolean!
+}
+
+type AgentStats @entity {
+  "Singleton — always ID '1'"
+  id: ID!
+  totalPredictions: BigInt!
+  accuratePredictions: BigInt!
+  totalHedges: BigInt!
+  totalValueProtected: BigInt!
+  accuracyRate: BigDecimal!
+  lastUpdated: BigInt!
+}
+
+type DailySnapshot @entity {
+  "ID = date string YYYY-MM-DD"
+  id: ID!
+  date: String!
+  predictionsCreated: Int!
+  hedgesExecuted: Int!
+  outcomesRecorded: Int!
+  avgRiskScore: BigDecimal!
+  totalValueProtected: BigInt!
+}

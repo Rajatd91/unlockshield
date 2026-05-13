@@ -1,0 +1,32 @@
+specVersion: 0.0.5
+description: UnlockShield — Token Unlock Prediction & Hedge Attestation Indexer on Kite AI
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: UnlockShieldAttestation
+    network: kite-ai-testnet
+    source:
+      address: "CONTRACT_ADDRESS_PLACEHOLDER"
+      abi: UnlockShieldAttestation
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Prediction
+        - HedgeAction
+        - Outcome
+        - AgentStats
+      abis:
+        - name: UnlockShieldAttestation
+          file: ./abis/UnlockShieldAttestation.json
+      eventHandlers:
+        - event: PredictionCreated(indexed uint256,string,uint256,uint256,uint8,string,int16)
+          handler: handlePredictionCreated
+        - event: HedgeActionRecorded(indexed uint256,indexed uint256,string,string,bool)
+          handler: handleHedgeActionRecorded
+        - event: OutcomeRecorded(indexed uint256,int16,uint256)
+          handler: handleOutcomeRecorded
+      file: ./src/mapping.ts
