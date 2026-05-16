@@ -507,7 +507,7 @@ async def get_full_market_intelligence() -> Dict:
             "change_7d": tvl.get("tvl_change_7d", 0),
         },
         "tokens_count": len(tokens),
-        "top_tokens": tokens[:100],  # Top 100 for display
+        "top_tokens": tokens,         # All tokens for display
         "all_tokens": tokens,        # Full list for search
         "sectors": sector_data,
         "sector_colors": SECTOR_COLORS,

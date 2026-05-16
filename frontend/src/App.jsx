@@ -4,7 +4,7 @@ import {
   RefreshCw, CheckCircle, BarChart3, Globe, Clock, Target, ArrowUpRight,
   ArrowDownRight, Cpu, Database, Eye, ChevronDown, ChevronRight, Info,
   PieChart, Layers, Wallet, Search, Filter, Gauge, Flame, Snowflake,
-  ArrowRight, Lock, Unlock, Play, ChevronUp, X, ArrowLeft, Bell
+  ArrowRight, Lock, Unlock, Play, ChevronUp, X, ArrowLeft, Bell, ChevronLeft
 } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || ''
@@ -63,11 +63,14 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg2);color:va
 .ticker{display:flex;gap:8px;padding:16px 0 12px;overflow-x:auto;scrollbar-width:none}
 .ticker::-webkit-scrollbar{display:none}
 .tk{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:12px 16px;
-    min-width:140px;flex-shrink:0;transition:all .2s;cursor:default}
-.tk:hover{box-shadow:var(--shadow);border-color:var(--border2)}
+    min-width:140px;flex-shrink:0;transition:all .2s;cursor:pointer;position:relative}
+.tk:hover{box-shadow:var(--shadow2);border-color:var(--green);transform:translateY(-1px)}
+.tk:active{transform:translateY(0)}
 .tk-l{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:4px}
 .tk-v{font-size:17px;font-weight:800}
 .tk-c{font-size:11px;font-weight:600;margin-top:1px}
+.tk-hint{font-size:8px;color:var(--green);font-weight:600;opacity:0;transition:opacity .2s;position:absolute;bottom:4px;right:8px}
+.tk:hover .tk-hint{opacity:1}
 
 /* Stat Cards */
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:6px 0 14px}
@@ -235,6 +238,25 @@ tr.clickable:hover td{background:var(--green-bg)}
 .empty{text-align:center;padding:48px 24px;background:var(--bg);border:1px dashed var(--border);border-radius:var(--r)}
 .empty p{margin-top:6px;font-size:13px;color:var(--text3)}
 
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 0}
+.pg-btn{padding:6px 14px;border-radius:var(--r3);font-size:11px;font-weight:600;cursor:pointer;
+        border:1px solid var(--border);background:var(--bg);color:var(--text2);transition:all .2s;font-family:inherit}
+.pg-btn:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.pg-btn.on{background:var(--green);color:#fff;border-color:var(--green)}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed}
+.pg-info{font-size:11px;color:var(--text3);font-weight:500;padding:0 8px}
+
+/* Regime Modal */
+.regime-modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:301;
+  background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:28px;
+  width:520px;max-width:90vw;box-shadow:var(--shadow3);animation:fadeUp .25s ease}
+.regime-signal{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r2);
+  border:1px solid var(--border);margin-bottom:8px;transition:all .2s}
+.regime-signal:hover{border-color:var(--border2);background:var(--bg3)}
+.signal-bar{flex:1;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;position:relative}
+.signal-fill{height:100%;border-radius:4px;transition:width .6s ease}
+
 /* Animations */
 .spin{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -245,7 +267,7 @@ tr.clickable:hover td{background:var(--green-bg)}
 @keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 6px rgba(5,150,105,.5)}50%{opacity:.6;box-shadow:0 0 12px rgba(5,150,105,.8)}}
 
 /* Responsive */
-@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}}
+@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}}
 @media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}}
 `
 
@@ -266,6 +288,29 @@ const riskLabel = s => s>=80?'CRITICAL':s>=55?'HIGH':s>=35?'MEDIUM':'LOW'
 const stratCls = s => ({FULL_EXIT:'s-exit',REDUCE_POSITION:'s-reduce',SHORT_HEDGE:'s-hedge',OPTIONS_PUT:'s-put',DCA_EXIT:'s-dca'})[s]||''
 const barClr = s => s>=70?'var(--red)':s>=45?'var(--yellow)':'var(--green)'
 const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Meme:'#ec4899',Other:'#6b7280'}
+
+/* ═══ Sparkline Mini Chart (7d from CoinGecko sparkline data) ═══ */
+function Sparkline7d({ data, width = 80, height = 28, color }) {
+  if (!data || data.length < 5) return null
+  // Sample down to ~20 points for performance
+  const step = Math.max(1, Math.floor(data.length / 20))
+  const pts = data.filter((_, i) => i % step === 0 || i === data.length - 1)
+  const mn = Math.min(...pts)
+  const mx = Math.max(...pts)
+  const range = mx - mn || 1
+  const lineColor = color || (pts[pts.length-1] >= pts[0] ? '#059669' : '#dc2626')
+  const pathD = pts.map((v, i) => {
+    const x = (i / (pts.length - 1)) * width
+    const y = height - 2 - ((v - mn) / range) * (height - 4)
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block' }}>
+      <path d={pathD} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
 
 /* ═══ COMPONENTS ═══ */
 
@@ -362,42 +407,203 @@ function Toasts({toasts}) {
   )
 }
 
+/* ═══ REGIME SIGNALS MODAL ═══ */
+function RegimeModal({ regime, onClose }) {
+  if (!regime) return null
+  const signals = regime.signals || []
+  const biasColor = b => b === 'BULL' ? 'var(--green)' : b === 'BEAR' ? 'var(--red)' : 'var(--yellow)'
+  const biasIcon = b => b === 'BULL' ? <TrendingUp size={14}/> : b === 'BEAR' ? <TrendingDown size={14}/> : <Activity size={14}/>
+  return (
+    <>
+      <div className="overlay" onClick={onClose}/>
+      <div className="regime-modal fade">
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,marginBottom:2}}>Market Regime Analysis</div>
+            <div style={{fontSize:12,color:'var(--text3)'}}>Multi-signal composite — how we calculate the regime</div>
+          </div>
+          <button className="panel-close" onClick={onClose}><X size={16}/></button>
+        </div>
+
+        {/* Overall Regime Summary */}
+        <div style={{background:regime.regime==='BEAR'?'var(--red-bg)':regime.regime==='BULL'?'var(--green-bg)':'var(--yellow-bg)',
+          borderRadius:'var(--r)',padding:16,marginBottom:16,display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:54,height:54,borderRadius:12,background:regime.regime==='BEAR'?'#fecaca':regime.regime==='BULL'?'#d1fae5':'#fde68a',
+            display:'flex',alignItems:'center',justifyContent:'center'}}>
+            {regime.regime==='BEAR'?<TrendingDown size={26} color="#dc2626"/>:regime.regime==='BULL'?<TrendingUp size={26} color="#059669"/>:<Activity size={26} color="#d97706"/>}
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:22,fontWeight:900,color:regime.regime==='BEAR'?'#dc2626':regime.regime==='BULL'?'#059669':'#d97706'}}>
+              {regime.regime} — {Math.round((regime.confidence||0)*100)}% confidence
+            </div>
+            <div style={{fontSize:12,color:'var(--text2)',marginTop:2}}>{regime.interpretation}</div>
+          </div>
+        </div>
+
+        {/* Calculation Explanation */}
+        <div className="info-box" style={{borderLeftColor:'var(--cyan)',background:'var(--cyan-bg)',marginBottom:16,fontSize:11,lineHeight:1.7}}>
+          <strong>How it works:</strong> We evaluate 5 independent market signals. Each signal votes BULL, BEAR, or NEUTRAL.
+          If 3+ signals agree on a direction, that becomes the regime. Confidence = 60% + (agreeing signals / total) × 35%, capped at 95%.
+          <br/><strong>Hedge adjustment:</strong> {regime.regime === 'BEAR' ? 'Hedge sizing increased by 25%' : regime.regime === 'BULL' ? 'Hedge sizing reduced by 20%' : 'Standard hedge sizing applies'} (multiplier: {regime.hedge_multiplier}×)
+        </div>
+
+        {/* Individual Signals */}
+        <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:10}}>
+          5 Signals Breakdown
+        </div>
+        {signals.map((s, i) => (
+          <div className="regime-signal" key={i}>
+            <div style={{width:120}}>
+              <div style={{fontSize:12,fontWeight:700}}>{s.name}</div>
+              <div style={{fontSize:11,color:'var(--text3)'}}>{s.value}</div>
+            </div>
+            <div className="signal-bar">
+              <div className="signal-fill" style={{
+                width: `${Math.max(5, Math.min(100, s.score || 50))}%`,
+                background: biasColor(s.bias)
+              }}/>
+            </div>
+            <div style={{display:'flex',alignItems:'center',gap:4,width:70,justifyContent:'flex-end',color:biasColor(s.bias),fontWeight:700,fontSize:11}}>
+              {biasIcon(s.bias)} {s.bias}
+            </div>
+          </div>
+        ))}
+
+        {/* Data Source Attribution */}
+        <div style={{marginTop:14,padding:'10px 12px',background:'var(--bg3)',borderRadius:'var(--r3)',fontSize:10,color:'var(--text3)',lineHeight:1.6}}>
+          <strong>Data Sources:</strong> Market breadth from CoinGecko top 100 tokens • Fear & Greed from Alternative.me API •
+          BTC dominance from CoinGecko global • Market momentum from 24h total market cap change •
+          Meme coin strength from sector average performance
+        </div>
+      </div>
+    </>
+  )
+}
+
 function TokenPanel({token,analysis,unlockInfo,onClose}) {
   if(!token) return null
   const symbol=token.token_symbol||token.symbol||''
   const name=token.token_name||token.name||symbol
-  const risk=analysis?.risk_score||Math.round((unlockInfo?.total_supply_percent||1)*6.5)
+  const hasUnlock=!!unlockInfo?.unlock_date
+  const risk=analysis?.risk_score||(hasUnlock?Math.round((unlockInfo?.total_supply_percent||1)*6.5):null)
+  const price=token.price||token.current_price||0
+  const mcap=token.market_cap||0
+  const vol=token.volume_24h||0
+  const c24=token.change_24h||0
+  const c7=token.change_7d||0
+  const c30=token.change_30d||0
+  const sector=token.sector||'—'
+  const isMarketToken=!!(price||mcap)
+  const sparkline=token.sparkline_7d||[]
   return(
     <>
       <div className="overlay" onClick={onClose}/>
       <div className="panel">
         <div className="panel-hdr">
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <div className="ti" style={{width:40,height:40,fontSize:14,borderRadius:10}}>{symbol.slice(0,2)}</div>
-            <div><div style={{fontWeight:800,fontSize:18}}>{symbol}</div><div style={{fontSize:12,color:'var(--text3)'}}>{name}</div></div>
+            <div className="ti" style={{width:40,height:40,fontSize:14,borderRadius:10}}>
+              {token.image?<img src={token.image} alt="" style={{width:'100%',height:'100%',borderRadius:10}}/>:symbol.slice(0,2)}
+            </div>
+            <div>
+              <div style={{fontWeight:800,fontSize:18}}>{symbol}</div>
+              <div style={{fontSize:12,color:'var(--text3)',display:'flex',alignItems:'center',gap:6}}>
+                {name}
+                {sector!=='—'&&<span className="spill" style={{padding:'1px 6px',fontSize:9,margin:0,cursor:'default'}}><span className="dot" style={{background:SECTOR_COLORS[sector]||'#6b7280',width:5,height:5}}/>{sector}</span>}
+              </div>
+            </div>
           </div>
           <button className="panel-close" onClick={onClose}><X size={16}/></button>
         </div>
         <div className="panel-body">
-          <div style={{textAlign:'center',marginBottom:20}}><RiskGauge score={risk}/></div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
-            <div style={{background:'var(--bg3)',borderRadius:'var(--r2)',padding:12,textAlign:'center'}}>
-              <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Supply Unlock</div>
-              <div style={{fontSize:18,fontWeight:800,color:unlockInfo?.total_supply_percent>=5?'var(--red)':'var(--yellow)'}}>{unlockInfo?.total_supply_percent||'?'}%</div>
+          {/* Price & Market Data */}
+          {isMarketToken&&(
+            <div style={{marginBottom:20}}>
+              <div style={{display:'flex',alignItems:'baseline',gap:10,marginBottom:8}}>
+                <span style={{fontSize:28,fontWeight:800}}>${price>=1?price.toFixed(2):price.toFixed(6)}</span>
+                <span style={{fontSize:14,fontWeight:700,color:clr(c24)}}>{c24>0?'+':''}{c24}%</span>
+              </div>
+              {/* 7-day sparkline from CoinGecko data */}
+              {sparkline.length > 5 ? (
+                <div style={{marginBottom:10,background:'var(--bg3)',borderRadius:'var(--r3)',padding:10}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>7-Day Price Chart (CoinGecko)</div>
+                  <Sparkline7d data={sparkline} width={440} height={60}/>
+                </div>
+              ) : (
+                /* Fallback sparkline from price changes */
+                <svg width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none" style={{marginBottom:8}}>
+                  {[100+c30,100+(c30+c7)/2,100+c7,(100+c7+c24)/2,100+c24].map((v,i,arr)=>{
+                    if(i===0) return null
+                    const x1=(i-1)/(arr.length-1)*200;const x2=i/(arr.length-1)*200
+                    const mn=Math.min(...arr);const mx=Math.max(...arr);const range=mx-mn||1
+                    const y1=38-(arr[i-1]-mn)/range*34;const y2=38-(v-mn)/range*34
+                    return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke={c24>=0?'#059669':'#dc2626'} strokeWidth="2"/>
+                  })}
+                </svg>
+              )}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:8,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>7d</div>
+                  <div style={{fontSize:13,fontWeight:700,color:clr(c7)}}>{c7>0?'+':''}{c7}%</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:8,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>30d</div>
+                  <div style={{fontSize:13,fontWeight:700,color:clr(c30)}}>{c30>0?'+':''}{c30}%</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:8,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Rank</div>
+                  <div style={{fontSize:13,fontWeight:700}}>#{token.rank||'—'}</div>
+                </div>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginTop:6}}>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:8}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Market Cap</div>
+                  <div style={{fontSize:14,fontWeight:700}}>{fmt(mcap)}</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:8}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Volume 24h</div>
+                  <div style={{fontSize:14,fontWeight:700}}>{fmt(vol)}</div>
+                </div>
+              </div>
+              {vol>0&&mcap>0&&<div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>Vol/MCap ratio: <strong style={{color:vol/mcap*100>12?'var(--red)':'var(--text2)'}}>{(vol/mcap*100).toFixed(1)}%</strong>{vol/mcap*100>12&&<span style={{color:'var(--red)',marginLeft:4}}>⚠ Abnormal volume</span>}</div>}
+              <div style={{fontSize:10,color:'var(--text3)',marginTop:4}}>Data: CoinGecko API (real-time)</div>
             </div>
-            <div style={{background:'var(--bg3)',borderRadius:'var(--r2)',padding:12,textAlign:'center'}}>
-              <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Est. Impact</div>
-              <div style={{fontSize:18,fontWeight:800,color:'var(--red)'}}>{analysis?.predicted_impact||`~${(-((unlockInfo?.total_supply_percent||1)*3)).toFixed(0)}%`}</div>
+          )}
+
+          {/* Risk Gauge */}
+          {risk&&<div style={{textAlign:'center',marginBottom:16}}><RiskGauge score={risk}/></div>}
+
+          {/* Unlock Info */}
+          {hasUnlock&&(
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:8}}>Unlock Event</div>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:10,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Supply Unlock</div>
+                  <div style={{fontSize:18,fontWeight:800,color:unlockInfo.total_supply_percent>=5?'var(--red)':'var(--yellow)'}}>{unlockInfo.total_supply_percent}%</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:10,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Est. Impact</div>
+                  <div style={{fontSize:18,fontWeight:800,color:'var(--red)'}}>{analysis?.predicted_impact||`~${(-unlockInfo.total_supply_percent*3).toFixed(0)}%`}</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:10,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Date</div>
+                  <div style={{fontSize:13,fontWeight:700}}>{fmtD(unlockInfo.unlock_date)}</div>
+                  <div style={{fontSize:10,color:daysUntil(unlockInfo.unlock_date)<=7?'var(--red)':'var(--text3)'}}>{daysUntil(unlockInfo.unlock_date)}d away</div>
+                </div>
+                <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:10,textAlign:'center'}}>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Strategy</div>
+                  <div style={{fontSize:13,fontWeight:700,color:'var(--green)'}}>{analysis?.recommended_action?.replace('_',' ')||'PENDING'}</div>
+                </div>
+              </div>
+              {unlockInfo.unlock_amount_usd>0&&<div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>Unlock value: <strong>{fmt(unlockInfo.unlock_amount_usd)}</strong> ({unlockInfo.unlock_amount_tokens?.toLocaleString()} tokens)</div>}
             </div>
-            <div style={{background:'var(--bg3)',borderRadius:'var(--r2)',padding:12,textAlign:'center'}}>
-              <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Unlock Date</div>
-              <div style={{fontSize:14,fontWeight:700}}>{unlockInfo?.unlock_date?fmtD(unlockInfo.unlock_date):'TBD'}</div>
-            </div>
-            <div style={{background:'var(--bg3)',borderRadius:'var(--r2)',padding:12,textAlign:'center'}}>
-              <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:2}}>Strategy</div>
-              <div style={{fontSize:14,fontWeight:700,color:'var(--green)'}}>{analysis?.recommended_action?.replace('_',' ')||'PENDING'}</div>
-            </div>
-          </div>
+          )}
+
+          {!hasUnlock&&!isMarketToken&&(
+            <div style={{textAlign:'center',padding:20,color:'var(--text3)',fontSize:13}}>No detailed data available for this token.</div>
+          )}
+
+          {/* AI Analysis */}
           {analysis?.reasoning&&<div style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>AI Analysis</div><div className="info-box" style={{borderLeftColor:'var(--green)',background:'var(--green-bg)'}}>{analysis.reasoning}</div></div>}
           {analysis?.factor_scores&&<div style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:8}}>Risk Factors</div>{Object.entries(analysis.factor_scores).map(([k,v])=>(<div className="fr" key={k}><span className="fl">{k.replace(/_/g,' ')}</span><div className="fb"><div className="fv" style={{width:`${v}%`,background:barClr(v)}}/></div><span className="fn" style={{color:barClr(v)}}>{v}</span></div>))}</div>}
           {analysis?.key_risks?.length>0&&<div style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>Key Risks</div><div style={{display:'flex',flexWrap:'wrap',gap:4}}>{analysis.key_risks.map((r,i)=>(<span key={i} style={{background:'var(--red-bg)',color:'var(--red)',padding:'3px 8px',borderRadius:4,fontSize:10,fontWeight:600}}>{r}</span>))}</div></div>}
@@ -430,6 +636,9 @@ function App() {
   const [sectorFilter,setSectorFilter] = useState(null)
   const [selectedToken,setSelectedToken] = useState(null)
   const [toasts,setToasts] = useState([])
+  const [marketPage,setMarketPage] = useState(1)
+  const [showRegime,setShowRegime] = useState(false)
+  const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
     const id=Date.now()+Math.random()
@@ -492,6 +701,13 @@ function App() {
     return t
   },[topTokens,sectorFilter,tokenSearch])
 
+  // Pagination
+  const totalPages = Math.ceil(filteredTokens.length / TOKENS_PER_PAGE)
+  const paginatedTokens = filteredTokens.slice((marketPage - 1) * TOKENS_PER_PAGE, marketPage * TOKENS_PER_PAGE)
+
+  // Reset page on filter change
+  useEffect(()=>{ setMarketPage(1) },[sectorFilter, tokenSearch])
+
   const selectedAnalysis=selectedToken?analyses.find(a=>a.token===(selectedToken.token_symbol||selectedToken.symbol)):null
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
 
@@ -512,6 +728,7 @@ function App() {
     <div className="app">
       <Toasts toasts={toasts}/>
       {selectedToken&&<TokenPanel token={selectedToken} analysis={selectedAnalysis} unlockInfo={selectedUnlock||selectedToken} onClose={()=>setSelectedToken(null)}/>}
+      {showRegime&&<RegimeModal regime={regime} onClose={()=>setShowRegime(false)}/>}
 
       {/* HEADER */}
       <div className="hdr">
@@ -530,16 +747,53 @@ function App() {
         </div>
       </div>
 
-      {/* TICKER */}
+      {/* TICKER — ALL ITEMS INTERACTIVE */}
       {market&&(
         <div className="ticker">
-          <div className="tk"><div className="tk-l">Global Market Cap</div><div className="tk-v">{fmt(glob.total_market_cap)}</div><div className="tk-c" style={{color:clr(glob.market_cap_change_24h)}}>{glob.market_cap_change_24h>0?'+':''}{glob.market_cap_change_24h}%</div></div>
-          <div className="tk"><div className="tk-l">24h Volume</div><div className="tk-v">{fmt(glob.total_volume_24h)}</div></div>
-          <div className="tk"><div className="tk-l">BTC Dominance</div><div className="tk-v">{glob.btc_dominance}%</div></div>
-          <div className="tk"><div className="tk-l">Fear & Greed</div><div className="tk-v" style={{color:fg.value>=60?'var(--green)':fg.value<=35?'var(--red)':'var(--yellow)'}}>{fg.value||'--'}<span style={{fontSize:11,color:'var(--text3)',fontWeight:500}}>/100</span></div><div style={{fontSize:10,color:'var(--text3)'}}>{fg.classification||''}</div></div>
-          {regime&&<div className="tk"><div className="tk-l">Market Regime</div><div className={`rgm rgm-${regime.regime?.toLowerCase()}`}>{regime.regime==='BULL'?<TrendingUp size={12}/>:regime.regime==='BEAR'?<TrendingDown size={12}/>:<Activity size={12}/>} {regime.regime} <span style={{fontWeight:400,opacity:.7}}>{Math.round((regime.confidence||0)*100)}%</span></div></div>}
-          <div className="tk"><div className="tk-l">Tokens Tracked</div><div className="tk-v" style={{color:'var(--green)'}}>{market.tokens_count||'300+'}</div></div>
-          <div className="tk"><div className="tk-l">DeFi TVL</div><div className="tk-v">{fmt(market.tvl?.total)}</div></div>
+          <div className="tk" onClick={()=>{setTab('market');toast('Global Market Cap',`${fmt(glob.total_market_cap)} (${glob.market_cap_change_24h>0?'+':''}${glob.market_cap_change_24h}% 24h)`,'g')}}>
+            <div className="tk-l">Global Market Cap</div>
+            <div className="tk-v">{fmt(glob.total_market_cap)}</div>
+            <div className="tk-c" style={{color:clr(glob.market_cap_change_24h)}}>{glob.market_cap_change_24h>0?'+':''}{glob.market_cap_change_24h}%</div>
+            <div className="tk-hint">View Market →</div>
+          </div>
+          <div className="tk" onClick={()=>{setTab('market');toast('24h Trading Volume',fmt(glob.total_volume_24h),'g')}}>
+            <div className="tk-l">24h Volume</div>
+            <div className="tk-v">{fmt(glob.total_volume_24h)}</div>
+            <div className="tk-hint">View Market →</div>
+          </div>
+          <div className="tk" onClick={()=>{setTab('market');setSectorFilter('L1');toast('BTC Dominance',`${glob.btc_dominance}% — ${glob.btc_dominance>55?'Risk-off environment':'Risk-on / altseason potential'}`,'g')}}>
+            <div className="tk-l">BTC Dominance</div>
+            <div className="tk-v">{glob.btc_dominance}%</div>
+            <div className="tk-c" style={{fontSize:10,color:'var(--text3)'}}>{glob.btc_dominance>55?'Risk-off':'Altseason signal'}</div>
+            <div className="tk-hint">View L1 tokens →</div>
+          </div>
+          <div className="tk" onClick={()=>{setShowRegime(true);toast('Fear & Greed Index',`${fg.value}/100 — ${fg.classification}`,'g')}}>
+            <div className="tk-l">Fear & Greed</div>
+            <div className="tk-v" style={{color:fg.value>=60?'var(--green)':fg.value<=35?'var(--red)':'var(--yellow)'}}>
+              {fg.value||'--'}<span style={{fontSize:11,color:'var(--text3)',fontWeight:500}}>/100</span>
+            </div>
+            <div style={{fontSize:10,color:'var(--text3)'}}>{fg.classification||''}</div>
+            <div className="tk-hint">View Signals →</div>
+          </div>
+          {regime&&<div className="tk" onClick={()=>setShowRegime(true)}>
+            <div className="tk-l">Market Regime</div>
+            <div className={`rgm rgm-${regime.regime?.toLowerCase()}`}>
+              {regime.regime==='BULL'?<TrendingUp size={12}/>:regime.regime==='BEAR'?<TrendingDown size={12}/>:<Activity size={12}/>}
+              {regime.regime} <span style={{fontWeight:400,opacity:.7}}>{Math.round((regime.confidence||0)*100)}%</span>
+            </div>
+            <div className="tk-hint">How is this calculated? →</div>
+          </div>}
+          <div className="tk" onClick={()=>{setTab('market');toast('Tokens Tracked',`${market.tokens_count||0} tokens from CoinGecko top 300`,'g')}}>
+            <div className="tk-l">Tokens Tracked</div>
+            <div className="tk-v" style={{color:'var(--green)'}}>{market.tokens_count||'300+'}</div>
+            <div className="tk-hint">View All →</div>
+          </div>
+          <div className="tk" onClick={()=>{setTab('kite');toast('DeFi TVL',`${fmt(market.tvl?.total)} total locked — Source: DeFiLlama`,'g')}}>
+            <div className="tk-l">DeFi TVL</div>
+            <div className="tk-v">{fmt(market.tvl?.total)}</div>
+            {market.tvl?.change_7d&&<div className="tk-c" style={{color:clr(market.tvl.change_7d)}}>{market.tvl.change_7d>0?'+':''}{market.tvl.change_7d}% 7d</div>}
+            <div className="tk-hint">DeFiLlama →</div>
+          </div>
         </div>
       )}
 
@@ -606,6 +860,36 @@ function App() {
               </div>
             </div>
           )}
+
+          {/* Regime Signals Inline (Dashboard) */}
+          {regime && regime.signals && regime.signals.length > 0 && (
+            <div className="sec">
+              <div className="crd" style={{cursor:'pointer',borderLeft:`3px solid ${regime.regime==='BEAR'?'var(--red)':regime.regime==='BULL'?'var(--green)':'var(--yellow)'}`}} onClick={()=>setShowRegime(true)}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8}}>
+                    <div className={`rgm rgm-${regime.regime?.toLowerCase()}`}>
+                      {regime.regime==='BULL'?<TrendingUp size={12}/>:regime.regime==='BEAR'?<TrendingDown size={12}/>:<Activity size={12}/>}
+                      {regime.regime} {Math.round((regime.confidence||0)*100)}%
+                    </div>
+                    <span style={{fontSize:11,color:'var(--text3)'}}>— {regime.interpretation?.split('.')[0]}</span>
+                  </div>
+                  <span style={{fontSize:10,color:'var(--green)',fontWeight:600,display:'flex',alignItems:'center',gap:3}}>
+                    <Info size={12}/> How is this calculated?
+                  </span>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:`repeat(${regime.signals.length},1fr)`,gap:6}}>
+                  {regime.signals.map((s,i) => (
+                    <div key={i} style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:'8px 10px',textAlign:'center'}}>
+                      <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:3}}>{s.name}</div>
+                      <div style={{fontSize:12,fontWeight:700,color:s.bias==='BULL'?'var(--green)':s.bias==='BEAR'?'var(--red)':'var(--yellow)'}}>{s.bias}</div>
+                      <div style={{fontSize:10,color:'var(--text3)'}}>{s.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="sec"><UnlockTimeline unlocks={unlocks} onSelect={u=>setSelectedToken(u)}/></div>
           <div className="sec">
             <div className="sh"><h2><AlertTriangle size={16} color="var(--yellow)"/> Upcoming Token Unlocks <span className="cnt">{unlocks.length}</span></h2></div>
@@ -678,7 +962,7 @@ function App() {
         </div>
       )}
 
-      {/* ═══ MARKET ═══ */}
+      {/* ═══ MARKET — ALL TOKENS WITH PAGINATION ═══ */}
       {tab==='market'&&(
         <div className="fade">
           {Object.keys(sectors).length>0&&(<div className="sec"><div className="sh"><h2><Layers size={16} color="var(--purple)"/> Sector Performance</h2></div>
@@ -686,21 +970,58 @@ function App() {
               <span className={`spill ${!sectorFilter?'on':''}`} onClick={()=>setSectorFilter(null)}>All</span>
               {Object.entries(sectors).map(([s,d])=>(<span key={s} className={`spill ${sectorFilter===s?'on':''}`} onClick={()=>setSectorFilter(sectorFilter===s?null:s)}><span className="dot" style={{background:SECTOR_COLORS[s]||'#6b7280'}}/> {s} ({d.count})<span style={{color:clr(d.avg_change_24h),marginLeft:4}}>{d.avg_change_24h>0?'+':''}{d.avg_change_24h}%</span></span>))}
             </div></div>)}
-          <div className="srch"><Search size={14}/><input placeholder={`Search ${topTokens.length}+ tokens...`} value={tokenSearch} onChange={e=>setTokenSearch(e.target.value)}/></div>
-          <div className="sec"><div className="sh"><h2><Globe size={16} color="var(--cyan)"/> Market Data <span className="cnt">{filteredTokens.length}</span></h2></div>
-            <div className="tw"><table><thead><tr><th>#</th><th>Token</th><th>Price</th><th>24h</th><th>7d</th><th>30d</th><th>Market Cap</th><th>Volume</th><th>Sector</th></tr></thead><tbody>
-              {filteredTokens.slice(0,100).map((t,i)=>(
-                <tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}>
-                  <td style={{color:'var(--text3)',fontSize:11}}>{t.rank}</td>
-                  <td><div className="tc"><div className="ti">{t.image?<img src={t.image} alt=""/>:t.symbol?.slice(0,2)}</div><div><div className="tn">{t.symbol}</div><div className="ts">{t.name}</div></div></div></td>
-                  <td style={{fontWeight:600}}>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td>
-                  <td style={{color:clr(t.change_24h),fontWeight:600}}>{t.change_24h>0?'+':''}{t.change_24h}%</td>
-                  <td style={{color:clr(t.change_7d)}}>{t.change_7d>0?'+':''}{t.change_7d}%</td>
-                  <td style={{color:clr(t.change_30d)}}>{t.change_30d>0?'+':''}{t.change_30d}%</td>
-                  <td>{fmt(t.market_cap)}</td><td>{fmt(t.volume_24h)}</td>
-                  <td><span className="spill" style={{cursor:'default'}}><span className="dot" style={{background:SECTOR_COLORS[t.sector]||'#6b7280'}}/>{t.sector}</span></td>
-                </tr>))}
-            </tbody></table></div></div>
+          <div className="srch"><Search size={14}/><input placeholder={`Search ${topTokens.length}+ tokens by name or symbol...`} value={tokenSearch} onChange={e=>setTokenSearch(e.target.value)}/></div>
+          <div className="sec">
+            <div className="sh">
+              <h2><Globe size={16} color="var(--cyan)"/> Market Data <span className="cnt">{filteredTokens.length}</span></h2>
+              <div style={{fontSize:10,color:'var(--text3)'}}>Source: CoinGecko API • Page {marketPage}/{totalPages||1}</div>
+            </div>
+            <div className="tw">
+              <table><thead><tr><th>#</th><th>Token</th><th>Price</th><th>24h</th><th>7d</th><th>7d Chart</th><th>Market Cap</th><th>Volume</th><th>Sector</th></tr></thead><tbody>
+                {paginatedTokens.map((t,i)=>(
+                  <tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}>
+                    <td style={{color:'var(--text3)',fontSize:11}}>{t.rank}</td>
+                    <td><div className="tc"><div className="ti">{t.image?<img src={t.image} alt=""/>:t.symbol?.slice(0,2)}</div><div><div className="tn">{t.symbol}</div><div className="ts">{t.name}</div></div></div></td>
+                    <td style={{fontWeight:600}}>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td>
+                    <td style={{color:clr(t.change_24h),fontWeight:600}}>{t.change_24h>0?'+':''}{t.change_24h}%</td>
+                    <td style={{color:clr(t.change_7d)}}>{t.change_7d>0?'+':''}{t.change_7d}%</td>
+                    <td><Sparkline7d data={t.sparkline_7d} width={70} height={24}/></td>
+                    <td>{fmt(t.market_cap)}</td><td>{fmt(t.volume_24h)}</td>
+                    <td><span className="spill" style={{cursor:'default'}}><span className="dot" style={{background:SECTOR_COLORS[t.sector]||'#6b7280'}}/>{t.sector}</span></td>
+                  </tr>))}
+              </tbody></table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button className="pg-btn" disabled={marketPage<=1} onClick={()=>setMarketPage(1)}>
+                  <ChevronLeft size={12}/>
+                </button>
+                <button className="pg-btn" disabled={marketPage<=1} onClick={()=>setMarketPage(p=>p-1)}>
+                  Prev
+                </button>
+                {Array.from({length:totalPages},(_,i)=>i+1).filter(p =>
+                  p===1 || p===totalPages || Math.abs(p-marketPage)<=1
+                ).map((p,idx,arr) => (
+                  <React.Fragment key={p}>
+                    {idx>0 && arr[idx-1]!==p-1 && <span className="pg-info">...</span>}
+                    <button className={`pg-btn ${marketPage===p?'on':''}`} onClick={()=>setMarketPage(p)}>{p}</button>
+                  </React.Fragment>
+                ))}
+                <button className="pg-btn" disabled={marketPage>=totalPages} onClick={()=>setMarketPage(p=>p+1)}>
+                  Next
+                </button>
+                <button className="pg-btn" disabled={marketPage>=totalPages} onClick={()=>setMarketPage(totalPages)}>
+                  <ChevronRight size={12}/>
+                </button>
+                <span className="pg-info">
+                  Showing {(marketPage-1)*TOKENS_PER_PAGE+1}–{Math.min(marketPage*TOKENS_PER_PAGE, filteredTokens.length)} of {filteredTokens.length}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:14}}>
             <div className="sec"><div className="sh"><h2><TrendingUp size={16} color="var(--green)"/> Top Gainers</h2></div>
               <div className="tw"><table><thead><tr><th>Token</th><th>Price</th><th>24h</th></tr></thead><tbody>
@@ -710,6 +1031,14 @@ function App() {
               <div className="tw"><table><thead><tr><th>Token</th><th>Price</th><th>24h</th></tr></thead><tbody>
                 {(market?.top_losers||[]).map((t,i)=>(<tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}><td style={{fontWeight:600}}>{t.symbol}</td><td>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td><td style={{color:'var(--red)',fontWeight:700}}>{t.change_24h}%</td></tr>))}
               </tbody></table></div></div>
+          </div>
+
+          {/* Data Source Attribution */}
+          <div style={{textAlign:'center',padding:'12px',fontSize:10,color:'var(--text3)',background:'var(--bg3)',borderRadius:'var(--r)',marginTop:8}}>
+            All market data powered by <strong>CoinGecko API</strong> (top {market?.tokens_count || 300} by market cap) •
+            Fear & Greed from <strong>Alternative.me</strong> •
+            TVL from <strong>DeFiLlama</strong> •
+            Updated every 2 minutes
           </div>
         </div>
       )}
