@@ -4,6 +4,7 @@ Autonomous Agent Controller
 The core brain — scans markets, analyzes risk, executes hedges, attests on-chain.
 One API call triggers the entire autonomous pipeline.
 """
+import os
 from fastapi import APIRouter
 from app.services.unlock_fetcher import fetch_upcoming_unlocks
 from app.services.risk_analyzer import analyze_unlock_risk
@@ -127,18 +128,26 @@ async def get_agent_reputation():
 @router.get("/status")
 async def get_agent_status():
     """Agent status with full capability inventory"""
+    contract_address = os.getenv("CONTRACT_ADDRESS", "")
+    contract_explorer = (
+        f"https://testnet.kitescan.ai/address/{contract_address}"
+        if contract_address else None
+    )
+
     return {
         "agent_name": "UnlockShield Autonomous Agent",
         "version": "2.0.0",
         "status": "active",
         "chain": "Kite AI Testnet (Chain ID: 2368)",
         "kite_connected": kite_service.is_connected(),
-        "ai_engine": "Claude Sonnet 4 (claude-sonnet-4-20250514)",
+        "kite_contract_address": contract_address or "not_configured",
+        "kite_contract_explorer": contract_explorer,
+        "analysis_engine": "Quantitative reasoning layer + 5-factor stress model",
         "risk_model": "5-factor weighted: Supply Shock (35%), Historical Pattern (25%), Recipient Type (20%), Market Regime (10%), Time Urgency (10%)",
         "capabilities": [
             "Full market surveillance (300+ tokens via CoinPaprika)",
             "Dynamic unlock monitoring (40+ tokens via Tokenomist + curated)",
-            "AI multi-factor risk analysis (Claude Sonnet 4)",
+            "Multi-factor quantitative risk analysis",
             "6 hedge strategies (FULL_EXIT → HOLD) with execution plans",
             "Real-time market regime detection (5-signal model)",
             "Fear & Greed Index integration",

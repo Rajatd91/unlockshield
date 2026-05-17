@@ -1,5 +1,5 @@
 """
-UnlockShield — Autonomous AI Agent for Token Unlock Hedging
+UnlockShield — Verifiable DeFi Stress Oracle
 Built on Kite AI blockchain for the Kite AI Global Hackathon 2026
 
 Main FastAPI application.
@@ -15,7 +15,7 @@ from app.routers import unlocks, agent, portfolio, backtest, market, wallet, eve
 
 app = FastAPI(
     title="UnlockShield API",
-    description="Autonomous AI trading agent that protects DeFi portfolios from token unlock dumps. Built on Kite AI.",
+    description="Verifiable DeFi stress oracle for token unlock shocks, AMM wrapper risk, and on-chain forecast reputation. Built on Kite AI.",
     version="1.0.0",
 )
 
@@ -38,7 +38,7 @@ app.add_middleware(
 async def root():
     return {
         "name": "UnlockShield",
-        "tagline": "Autonomous AI agent protecting DeFi portfolios from token unlock dumps",
+        "tagline": "Verifiable DeFi stress oracle for on-chain capital risk",
         "version": "1.0.0",
         "chain": "Kite AI (Testnet)",
         "chain_id": 2368,
