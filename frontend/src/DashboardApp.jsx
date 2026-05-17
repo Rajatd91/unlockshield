@@ -337,6 +337,7 @@ tr.clickable:hover td{background:var(--green-bg)}
 .regime-signal{display:flex;align-items:center;gap:12px;padding:12px;border-radius:var(--r2);
   border:1px solid var(--border);margin-bottom:8px;transition:all .2s}
 .regime-signal:hover{border-color:var(--border2);background:var(--bg3)}
+.rgm-sig:hover{background:var(--bg)!important;box-shadow:0 2px 8px rgba(0,0,0,.06);transform:translateY(-1px)}
 .signal-bar{flex:1;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;position:relative}
 .signal-fill{height:100%;border-radius:4px;transition:width .6s ease}
 
@@ -1531,7 +1532,7 @@ function App() {
           {/* Regime Signals Inline (Dashboard) */}
           {regime && regime.signals && regime.signals.length > 0 && (
             <div className="sec">
-              <div className="crd" style={{cursor:'pointer',borderLeft:`3px solid ${regime.regime==='BEAR'?'var(--red)':regime.regime==='BULL'?'var(--green)':'var(--yellow)'}`}} onClick={()=>setShowRegime(true)}>
+              <div className="crd" style={{cursor:'default',borderLeft:`3px solid ${regime.regime==='BEAR'?'var(--red)':regime.regime==='BULL'?'var(--green)':'var(--yellow)'}`}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <div className={`rgm rgm-${regime.regime?.toLowerCase()}`}>
@@ -1540,18 +1541,28 @@ function App() {
                     </div>
                     <span style={{fontSize:11,color:'var(--text3)'}}>— {regime.interpretation?.split('.')[0]}</span>
                   </div>
-                  <span style={{fontSize:10,color:'var(--green)',fontWeight:600,display:'flex',alignItems:'center',gap:3}}>
+                  <button className="mini-link" onClick={()=>setShowRegime(true)} style={{cursor:'pointer'}}>
                     <Info size={12}/> How is this calculated?
-                  </span>
+                  </button>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:`repeat(${regime.signals.length},1fr)`,gap:6}}>
-                  {regime.signals.map((s,i) => (
-                    <div key={i} style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:'8px 10px',textAlign:'center'}}>
-                      <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:3}}>{s.name}</div>
-                      <div style={{fontSize:12,fontWeight:700,color:s.bias==='BULL'?'var(--green)':s.bias==='BEAR'?'var(--red)':'var(--yellow)'}}>{s.bias}</div>
-                      <div style={{fontSize:10,color:'var(--text3)'}}>{s.value}</div>
-                    </div>
-                  ))}
+                  {regime.signals.map((s,i) => {
+                    const explanations = {
+                      'Market Breadth':`${s.value} of top 100 tokens are up. ${s.score>=55?'Broad-based buying — bullish for risk assets.':s.score<=45?'Most tokens declining — risk-off pressure.':'Mixed performance — no clear leader.'}`,
+                      'Fear & Greed':`Index = ${s.value}. ${s.score<=25?'Extreme Fear — historically a contrarian buy signal but means high volatility.':s.score<=45?'Fear in the market — defensive positioning recommended.':s.score>=75?'Extreme Greed — historically a top signal.':s.score>=55?'Greed dominates — stay alert for reversals.':'Neutral sentiment.'} Source: Alternative.me`,
+                      'BTC Dominance':`BTC = ${s.value} of total crypto market cap. ${s.score>=55?'Capital rotating into altcoins (altseason signal).':s.score<=45?'Capital fleeing to BTC (risk-off).':'Balanced — no strong rotation.'}`,
+                      'Market Momentum':`Total market cap moved ${s.value}. ${s.score>=55?'Positive momentum — buyers in control.':s.score<=45?'Negative momentum — sellers in control.':'Flat — wait-and-see mode.'}`,
+                      'Altcoin Strength':`Altcoins averaged ${s.value}. ${s.score>=55?'Altcoins outperforming BTC — risk-on environment.':s.score<=45?'Altcoins lagging — concentrate in BTC/ETH.':'Mixed altcoin performance.'}`,
+                    }
+                    const explain = explanations[s.name] || `${s.name}: ${s.value} — bias ${s.bias}`
+                    return (
+                      <div key={i} className="rgm-sig" onClick={()=>toast(`${s.name} — ${s.bias}`,explain,s.bias==='BULL'?'g':s.bias==='BEAR'?'r':'y')} style={{cursor:'pointer',background:'var(--bg3)',borderRadius:'var(--r3)',padding:'8px 10px',textAlign:'center',transition:'all .15s'}}>
+                        <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:3}}>{s.name}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:s.bias==='BULL'?'var(--green)':s.bias==='BEAR'?'var(--red)':'var(--yellow)'}}>{s.bias}</div>
+                        <div style={{fontSize:10,color:'var(--text3)'}}>{s.value}</div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
