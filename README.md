@@ -82,7 +82,7 @@ This is not a trading bot. It is **DeFi risk infrastructure** — closer to Mood
 
 | Criterion | How UnlockShield delivers |
 |---|---|
-| **AI-native trading infrastructure** | Custom RS-GARCH stress engine (not just LLM prompting) + Claude Sonnet 4 for risk reasoning |
+| **AI-native trading infrastructure** | Custom RS-GARCH stress engine (not just LLM prompting) + LLM reasoning layer for risk explanations |
 | **Reputation-aware capital delegation** | ERC-8004-style trustless reputation built from cryptographically verified predictions, not self-reported metrics |
 | **Stablecoin-first settlement** | All hedge recommendations route to USDC via L-USDC yield wrapper |
 | **Manages risk dynamically** | Regime detection (BULL/BEAR/SIDEWAYS) adjusts hedge sizing in real time |
@@ -222,7 +222,7 @@ Full Swagger docs: https://unlockshield-api.onrender.com/docs
 |---|---|
 | Smart Contract | Solidity 0.8.19 on Kite AI Testnet (Chain ID 2368) |
 | Backend | Python 3.10, FastAPI, web3.py, NumPy |
-| AI Engine | Claude Sonnet 4 (Anthropic) — risk reasoning layer |
+| AI Reasoning Layer | LLM-based risk explanation generator (Anthropic API) |
 | Simulation | Custom RS-GARCH Monte Carlo + Merton Jump-Diffusion |
 | Frontend | React 18, Vite, Lucide icons |
 | Data | CoinPaprika, DeFiLlama, Alternative.me, Tokenomist |
@@ -260,18 +260,6 @@ The dissertation formalises the RS-GARCH + jump-diffusion methodology, evaluates
 - Hamilton (1989) — Markov regime-switching
 - Milionis et al. (2022) — Loss-Versus-Rebalancing for AMM LPs
 - Cartea, Drissi, Monga (2024) — Predictable loss and optimal liquidity provision
-
----
-
-## Roadmap
-
-**Hackathon (now):** RS-GARCH stress engine, commit-reveal oracle, multi-source intelligence, frontend dashboard, simulated hedging.
-
-**Q3 2026:** Real DEX integration (Uniswap, GMX), production wrapper integrations (Arrakis V2, Gamma), workshop paper submission (DeFi Workshop at IEEE S&P or AFT).
-
-**Q4 2026 – Q1 2027:** B2B risk feed integrations (Morpho curators, lending protocols), live prediction track record (6+ months), open-source release of stress engine.
-
-**Beyond:** Risk-bonded LP wrapper standard, options-based hedging via Lyra/Premia, LST/LRT collateral risk module, ERC-8004 reputation registry integration.
 
 ---
 

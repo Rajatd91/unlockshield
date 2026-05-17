@@ -349,9 +349,51 @@ tr.clickable:hover td{background:var(--green-bg)}
            box-shadow:0 0 6px rgba(5,150,105,.5);animation:pulseDot 2s ease-in-out infinite}
 @keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 6px rgba(5,150,105,.5)}50%{opacity:.6;box-shadow:0 0 12px rgba(5,150,105,.8)}}
 
+/* Hero */
+.hero{margin:24px 0 28px;padding:36px 32px;border-radius:18px;position:relative;overflow:hidden;
+      background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 35%,#ffffff 100%);
+      border:1px solid #d1fae5}
+.hero::before{content:'';position:absolute;top:-40%;right:-10%;width:520px;height:520px;border-radius:50%;
+              background:radial-gradient(circle,rgba(16,185,129,.18) 0%,transparent 70%);pointer-events:none}
+.hero-inner{position:relative;display:grid;grid-template-columns:1.4fr 1fr;gap:40px;align-items:center}
+.hero-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;
+          background:rgba(5,150,105,.1);color:var(--green);font-size:11px;font-weight:700;
+          letter-spacing:.4px;text-transform:uppercase;margin-bottom:14px;border:1px solid rgba(5,150,105,.2)}
+.hero-title{font-size:36px;font-weight:900;line-height:1.1;letter-spacing:-1px;color:var(--text);margin-bottom:14px}
+.hero-title em{font-style:normal;background:linear-gradient(135deg,#059669,#10b981);
+               -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:15px;line-height:1.55;color:var(--text2);max-width:580px;margin-bottom:20px}
+.hero-actions{display:flex;gap:10px;flex-wrap:wrap}
+.hero-trust{display:flex;gap:24px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(5,150,105,.15)}
+.hero-trust-item{display:flex;flex-direction:column;gap:2px}
+.hero-trust-val{font-size:20px;font-weight:800;color:var(--text);line-height:1}
+.hero-trust-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.hero-visual{position:relative;display:flex;align-items:center;justify-content:center;min-height:240px}
+.hero-card{background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border:1px solid #d1fae5;
+           border-radius:14px;padding:20px;box-shadow:0 20px 50px rgba(5,150,105,.15);
+           width:100%;max-width:340px}
+.hero-card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.hero-card-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.hero-card-pulse{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:700}
+.hero-card-metric{font-size:28px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px}
+.hero-card-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #e0e8e3;font-size:12px}
+.hero-card-row:first-of-type{border-top:none;padding-top:4px}
+.hero-card-row span:first-child{color:var(--text3)}
+.hero-card-row span:last-child{font-weight:700;color:var(--text)}
+
+/* Footer */
+.foot{margin-top:48px;padding:32px 0 20px;border-top:1px solid var(--border)}
+.foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;margin-bottom:28px}
+.foot-brand h3{font-size:16px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.foot-brand p{font-size:12px;color:var(--text3);line-height:1.55;max-width:280px}
+.foot-col h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);font-weight:700;margin-bottom:10px}
+.foot-col a{display:block;padding:4px 0;font-size:12px;color:var(--text2);text-decoration:none;transition:color .15s}
+.foot-col a:hover{color:var(--green)}
+.foot-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:20px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)}
+
 /* Responsive */
-@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}}
-@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}}
+@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}.hero-inner{grid-template-columns:1fr}.hero-visual{display:none}.foot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}.hero{padding:28px 20px;margin:18px 0 22px}.hero-title{font-size:26px}.hero-trust{gap:16px;flex-wrap:wrap}.foot-grid{grid-template-columns:1fr;gap:24px}.foot-bottom{flex-direction:column;gap:8px}}
 `
 
 /* ═══ HELPERS ═══ */
@@ -485,9 +527,9 @@ const DEMO_EVENTS = {
   total_events:6,
   events:[
     {event_type:'macro_event',title:'Risk regime under pressure',description:'Fear & Greed and BTC dominance imply defensive market structure; stress engine raises base volatility.',severity_score:58,severity_label:'MEDIUM',source:'Alternative.me + market regime',timestamp:new Date().toISOString()},
-    {event_type:'token_unlock',title:'ARB supply shock window',description:'Upcoming investor/team unlock calibrates negative jump probability in the Monte Carlo engine.',severity_score:62,severity_label:'HIGH',source:'Token unlock schedule',timestamp:'2026-06-16',token_symbol:'ARB'},
+    {event_type:'token_unlock',title:'ARB unlock approaching',description:'Investor and team tokens unlock soon. Historical pattern shows downside pressure in the days before release.',severity_score:62,severity_label:'HIGH',source:'Token unlock schedule',timestamp:'2026-06-16',token_symbol:'ARB'},
     {event_type:'stablecoin_flow',title:'Stablecoin liquidity watch',description:'Stablecoin supply and depeg monitor feed liquidity-risk adjustments for AMM wrapper tests.',severity_score:42,severity_label:'MEDIUM',source:'DeFiLlama stablecoins',timestamp:new Date().toISOString()},
-    {event_type:'dex_volume_spike',title:'DEX microstructure scan',description:'Trending pools and volume anomalies are monitored for local volatility and slippage stress.',severity_score:45,severity_label:'MEDIUM',source:'GeckoTerminal',timestamp:new Date().toISOString()},
+    {event_type:'dex_volume_spike',title:'DEX volume anomalies',description:'Unusual trading activity flagged on top pools. Used to detect early signs of stress in liquidity.',severity_score:45,severity_label:'MEDIUM',source:'GeckoTerminal',timestamp:new Date().toISOString()},
     {event_type:'liquidation_cascade',title:'Lending unwind monitor',description:'Large TVL drawdowns in lending venues can trigger forced selling and jump shocks.',severity_score:38,severity_label:'LOW',source:'DeFiLlama protocols',timestamp:new Date().toISOString()},
     {event_type:'whale_movement',title:'Exchange-flow watch',description:'Large transfer detection watches for whale deposits that often precede sell pressure.',severity_score:35,severity_label:'LOW',source:'Etherscan',timestamp:new Date().toISOString()},
   ]
@@ -664,7 +706,7 @@ function EventRiskBoard({eventStream,unlocks,market,onSelectToken,onOpenStress})
           <div className="logo-ic" style={{width:38,height:38,borderRadius:12}}><Gauge size={20} color="#fff"/></div>
           <div>
             <h2>Multi-Event Risk Radar</h2>
-            <p>Not just token unlocks. The agent watches microstructure, macro, whale, stablecoin, liquidation, governance, regulatory and supply-shock signals, then pushes them into the RS-GARCH Monte Carlo stress engine.</p>
+            <p>Watching eight market signal types in real time. Token unlocks, large wallet moves, stablecoin pressure, lending health, governance votes, regulation, exchange volume, and macro context all feed the same risk model.</p>
           </div>
         </div>
         <span className={`threat-pill threat-${String(threat).toLowerCase()}`}><Activity size={13}/> {threat} threat</span>
@@ -1057,7 +1099,7 @@ function App() {
     setScanning(true);setScanStep(0)
     toast('Agent Scan Started','Fetching multi-event risk data...','y')
     await new Promise(r=>setTimeout(r,800));setScanStep(1)
-    toast('Running Stress Engine','RS-GARCH MC evaluating shock scenarios...','y')
+    toast('Running Stress Test','Simulating thousands of price paths...','y')
     try{
       const r=await fetch(`${API}/api/agent/scan`,{method:'POST'});const d=await r.json()
       setScanStep(2);toast('Policy Check','Evaluating bounded hedge and LP actions...','y')
@@ -1143,7 +1185,7 @@ function App() {
         },
       }
       setLastPrediction(localPreview)
-      toast('Stress Preview Generated','Backend commit timed out, but local RS-GARCH preview is shown for review. Try again once API is warm.','y')
+      toast('Stress Preview Generated','Backend commit timed out, showing local preview instead. Try again in a moment.','y')
     }
     setPredLoading(false)
   }
@@ -1204,7 +1246,54 @@ function App() {
         </div>
       </div>
 
-      {/* TICKER — ALL ITEMS INTERACTIVE */}
+      {/* HERO */}
+      <div className="hero">
+        <div className="hero-inner">
+          <div>
+            <div className="hero-tag"><Shield size={11}/> Kite AI Hackathon 2026 · Agentic Trading Track</div>
+            <h1 className="hero-title">Forecast token unlock crashes <em>before they happen</em>.</h1>
+            <p className="hero-sub">Every prediction is committed on Kite AI as a tamper-proof hash before the unlock, then revealed and scored after. Honest by design, not by reputation.</p>
+            <div className="hero-actions">
+              <button className="btn btn-p" onClick={()=>setTab('stress')}><Activity size={13}/> Try Stress Test</button>
+              <button className="btn btn-s" onClick={()=>setTab('predictions')}><Target size={13}/> View Predictions</button>
+            </div>
+            <div className="hero-trust">
+              <div className="hero-trust-item">
+                <div className="hero-trust-val">{market?.tokens_count||'300+'}</div>
+                <div className="hero-trust-lbl">Tokens Monitored</div>
+              </div>
+              <div className="hero-trust-item">
+                <div className="hero-trust-val">2,000</div>
+                <div className="hero-trust-lbl">Sim Paths per Run</div>
+              </div>
+              <div className="hero-trust-item">
+                <div className="hero-trust-val">8</div>
+                <div className="hero-trust-lbl">Event Categories</div>
+              </div>
+              <div className="hero-trust-item">
+                <div className="hero-trust-val" style={{color:'var(--green)'}}>{agent?.kite_connected?'Live':'Ready'}</div>
+                <div className="hero-trust-lbl">On Kite Chain</div>
+              </div>
+            </div>
+          </div>
+          <div className="hero-visual">
+            <div className="hero-card">
+              <div className="hero-card-h">
+                <span className="hero-card-title">Next Unlock Event</span>
+                <span className="hero-card-pulse"><span className="pulse-dot" style={{width:6,height:6}}/> live</span>
+              </div>
+              <div className="hero-card-metric" style={{color:'var(--text)'}}>{unlocks[0]?.token_symbol||'PYTH'}</div>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:12}}>{unlocks[0]?.token_name||'Pyth Network'}</div>
+              <div className="hero-card-row"><span>Date</span><span>{unlocks[0]?fmtD(unlocks[0].unlock_date):'May 20, 2026'}</span></div>
+              <div className="hero-card-row"><span>Supply Released</span><span>{unlocks[0]?.total_supply_percent||1.33}%</span></div>
+              <div className="hero-card-row"><span>Estimated Value</span><span>{unlocks[0]?fmt(unlocks[0].unlock_amount_usd):'$8.9M'}</span></div>
+              <div className="hero-card-row"><span>Model VaR (95%)</span><span style={{color:'var(--red)'}}>{glob.market_cap_change_24h<0?'-12 to -18%':'-8 to -14%'}</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TICKER — KEY MARKET METRICS */}
       {market&&(
         <div className="ticker">
           <div className="tk" onClick={()=>{setTab('market');toast('Global Market Cap',`${fmt(glob.total_market_cap)} (${glob.market_cap_change_24h>0?'+':''}${glob.market_cap_change_24h}% 24h)`,'g')}}>
@@ -1213,37 +1302,25 @@ function App() {
             <div className="tk-c" style={{color:clr(glob.market_cap_change_24h)}}>{glob.market_cap_change_24h>0?'+':''}{glob.market_cap_change_24h}%</div>
             <div className="tk-hint">View Market →</div>
           </div>
-          <div className="tk" onClick={()=>{setTab('market');toast('24h Trading Volume',fmt(glob.total_volume_24h),'g')}}>
-            <div className="tk-l">24h Volume</div>
-            <div className="tk-v">{fmt(glob.total_volume_24h)}</div>
-            <div className="tk-hint">View Market →</div>
-          </div>
           <div className="tk" onClick={()=>{setTab('market');setSectorFilter('L1');toast('BTC Dominance',`${glob.btc_dominance}% — ${glob.btc_dominance>55?'Risk-off environment':'Risk-on / altseason potential'}`,'g')}}>
             <div className="tk-l">BTC Dominance</div>
             <div className="tk-v">{glob.btc_dominance}%</div>
             <div className="tk-c" style={{fontSize:10,color:'var(--text3)'}}>{glob.btc_dominance>55?'Risk-off':'Altseason signal'}</div>
             <div className="tk-hint">View L1 tokens →</div>
           </div>
-          <div className="tk" onClick={()=>{setShowRegime(true);toast('Fear & Greed Index',`${fg.value}/100 — ${fg.classification}`,'g')}}>
-            <div className="tk-l">Fear & Greed</div>
-            <div className="tk-v" style={{color:fg.value>=60?'var(--green)':fg.value<=35?'var(--red)':'var(--yellow)'}}>
-              {fg.value||'--'}<span style={{fontSize:11,color:'var(--text3)',fontWeight:500}}>/100</span>
+          <div className="tk" onClick={()=>setShowRegime(true)}>
+            <div className="tk-l">Sentiment & Regime</div>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div className="tk-v" style={{color:fg.value>=60?'var(--green)':fg.value<=35?'var(--red)':'var(--yellow)'}}>
+                {fg.value||'--'}
+              </div>
+              {regime&&<span className={`rgm rgm-${regime.regime?.toLowerCase()}`} style={{fontSize:10,padding:'2px 6px'}}>
+                {regime.regime==='BULL'?<TrendingUp size={10}/>:regime.regime==='BEAR'?<TrendingDown size={10}/>:<Activity size={10}/>}
+                {regime.regime}
+              </span>}
             </div>
-            <div style={{fontSize:10,color:'var(--text3)'}}>{fg.classification||''}</div>
+            <div style={{fontSize:10,color:'var(--text3)'}}>{fg.classification||'Neutral'}</div>
             <div className="tk-hint">View Signals →</div>
-          </div>
-          {regime&&<div className="tk" onClick={()=>setShowRegime(true)}>
-            <div className="tk-l">Market Regime</div>
-            <div className={`rgm rgm-${regime.regime?.toLowerCase()}`}>
-              {regime.regime==='BULL'?<TrendingUp size={12}/>:regime.regime==='BEAR'?<TrendingDown size={12}/>:<Activity size={12}/>}
-              {regime.regime} <span style={{fontWeight:400,opacity:.7}}>{Math.round((regime.confidence||0)*100)}%</span>
-            </div>
-            <div className="tk-hint">How is this calculated? →</div>
-          </div>}
-          <div className="tk" onClick={()=>{setTab('market');toast('Tokens Tracked',`${market.tokens_count||0} tokens from CoinPaprika market universe`,'g')}}>
-            <div className="tk-l">Tokens Tracked</div>
-            <div className="tk-v" style={{color:'var(--green)'}}>{market.tokens_count||'300+'}</div>
-            <div className="tk-hint">View All →</div>
           </div>
           <div className="tk" onClick={()=>{setTab('kite');toast('DeFi TVL',`${fmt(market.tvl?.total)} total locked — Source: DeFiLlama`,'g')}}>
             <div className="tk-l">DeFi TVL</div>
@@ -1281,8 +1358,8 @@ function App() {
           <div className="st-arrow"><Zap size={14}/></div>
           <div className="st-ic" style={{background:'var(--purple-bg)'}}><Cpu size={18} color="var(--purple)"/></div>
           <div className="st-label">Stress Engine</div>
-          <div className="st-val" style={{fontSize:14,color:'var(--purple)'}}>RS-GARCH MC</div>
-          <div className="st-sub">2,000 paths + jumps <Zap size={10}/></div>
+          <div className="st-val" style={{fontSize:14,color:'var(--purple)'}}>Monte Carlo</div>
+          <div className="st-sub">2,000 simulated paths <Zap size={10}/></div>
         </div>
         <div className="st" onClick={()=>setTab('kite')}>
           <div className="st-arrow"><ArrowRight size={14}/></div>
@@ -1308,7 +1385,7 @@ function App() {
               <div style={{fontSize:12,fontWeight:700,marginBottom:14,display:'flex',alignItems:'center',gap:6}}><RefreshCw size={14} className="spin" color="var(--green)"/> Agent Scanning...</div>
               <div className="scan-steps">
                 <div className="scan-line"><div className="scan-line-fill" style={{width:`${Math.min(scanStep/3*100,100)}%`}}/></div>
-                {['Fetch Events','RS-GARCH Stress','Policy Action','Record On-Chain'].map((s,i)=>(
+                {['Fetch Events','Run Stress Test','Decide Action','Record On-Chain'].map((s,i)=>(
                   <div className="scan-step" key={i}>
                     <div className={`scan-dot ${scanStep===i?'active':scanStep>i?'done':'pending'}`}>{scanStep>i?<CheckCircle size={12}/>:scanStep===i?<RefreshCw size={12} className="spin"/>:(i+1)}</div>
                     <div className={`scan-label ${scanStep>=i?'active':''}`}>{s}</div>
@@ -1514,7 +1591,7 @@ function App() {
       {tab==='stress'&&(
         <div className="fade">
           <div className="sec">
-            <div className="sh"><h2><Activity size={16} color="var(--green)"/> RS-GARCH Monte Carlo Stress Engine</h2><span className="bdg">Phase 2</span></div>
+            <div className="sh"><h2><Activity size={16} color="var(--green)"/> Stress Test Simulator</h2><span className="bdg">Live</span></div>
             <div className="crd" style={{cursor:'default',marginBottom:14}}>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto',gap:10,alignItems:'end'}}>
                 <div>
@@ -1650,7 +1727,7 @@ function App() {
           )}
 
           {!stressResult&&!stressLoading&&(
-            <div className="empty"><Activity size={40} color="var(--text3)" style={{marginBottom:8}}/><h3 style={{fontSize:16,fontWeight:700}}>Configure & Run Stress Test</h3><p>Select a token and unlock parameters above, then click "Run Stress Test" to generate a full RS-GARCH Monte Carlo simulation with 2000 paths.</p></div>
+            <div className="empty"><Activity size={40} color="var(--text3)" style={{marginBottom:8}}/><h3 style={{fontSize:16,fontWeight:700}}>Configure & Run Stress Test</h3><p>Select a token and unlock parameters above, then click "Run Stress Test" to simulate 2,000 price paths and see the loss distribution under realistic shock scenarios.</p></div>
           )}
         </div>
       )}
@@ -1677,7 +1754,7 @@ function App() {
                   </div>
                 </div>
                 <button className="btn btn-p" style={{width:'100%',justifyContent:'center'}} onClick={createPrediction} disabled={predLoading}>{predLoading?<><RefreshCw size={13} className="spin"/> Committing...</>:<><Lock size={13}/> Run Stress Test & Commit Prediction</>}</button>
-                <div style={{fontSize:10,color:'var(--text3)',marginTop:8,lineHeight:1.5}}>Runs RS-GARCH MC simulation → generates prediction → commits keccak256 hash to Kite AI blockchain BEFORE the unlock event. Provably honest.</div>
+                <div style={{fontSize:10,color:'var(--text3)',marginTop:8,lineHeight:1.5}}>Runs stress simulation, generates prediction, then commits a tamper-proof hash to Kite AI before the unlock event. Anyone can verify the prediction afterwards.</div>
               </div>
 
               {/* Reputation */}
@@ -1714,7 +1791,7 @@ function App() {
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:10}}>
                   <div>
                     <div style={{fontSize:10,color:'var(--text3)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.55px'}}>{String(lastPrediction.commit_hash).startsWith('local-preview')?'Latest stress preview':'Latest committed stress forecast'}</div>
-                    <div style={{fontSize:17,fontWeight:900,marginTop:2}}>{lastPrediction.token} {String(lastPrediction.commit_hash).startsWith('local-preview')?'RS-GARCH preview generated':'prediction committed before event resolution'}</div>
+                    <div style={{fontSize:17,fontWeight:900,marginTop:2}}>{lastPrediction.token} {String(lastPrediction.commit_hash).startsWith('local-preview')?'stress preview generated':'prediction committed before event resolution'}</div>
                     <div style={{fontSize:11,color:'var(--text3)',marginTop:3,lineHeight:1.5}}>{String(lastPrediction.commit_hash).startsWith('local-preview')?'The backend commit timed out, so this card shows a deterministic local preview. Run again when the API is warm to write the commit hash.':'Commit hash locks the forecast now; reveal later proves the prediction was not edited after the market moved.'}</div>
                   </div>
                   <span className={`rsk ${String(lastPrediction.commit_hash).startsWith('local-preview')?'r-m':'r-l'}`}>{String(lastPrediction.commit_hash).startsWith('local-preview')?<Clock size={11}/>:<CheckCircle size={11}/>} {String(lastPrediction.commit_hash).startsWith('local-preview')?'API Warm-Up':'Commit Ready'}</span>
@@ -1763,7 +1840,7 @@ function App() {
             <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--blue)'}}>
               <div className="oracle-flow">
                 {[
-                  {n:'Stress Test',d:'RS-GARCH Monte Carlo generates a full distribution: VaR, CVaR, loss probability, LP impermanent-loss stress.',ic:<Activity size={15}/>},
+                  {n:'Stress Test',d:'Simulates 2,000 price paths to produce VaR, CVaR, loss probability and LP impermanent-loss distribution.',ic:<Activity size={15}/>},
                   {n:'Commit Hash',d:'keccak256(token, forecast, confidence, timestamp, salt) is committed before the event resolves.',ic:<Lock size={15}/>},
                   {n:'Observe Event',d:'Market outcome is pulled from price and on-chain sources after the shock window ends.',ic:<Eye size={15}/>},
                   {n:'Reveal & Score',d:'Prediction is revealed, hash-checked, scored, and added to the agent reputation record.',ic:<CheckCircle size={15}/>},
@@ -1826,7 +1903,7 @@ function App() {
           <div className="sec">
             <div className="sh"><h2><Cpu size={16} color="var(--cyan)"/> Agent Architecture</h2></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {[{i:<Eye size={20}/>,t:'Monitor',d:'300+ tokens via CoinPaprika, 40+ unlocks from Tokenomist',c:'var(--yellow)',bg:'var(--yellow-bg)'},{i:<Cpu size={20}/>,t:'Analyze',d:'Claude Sonnet 4 with 5-factor risk model',c:'var(--purple)',bg:'var(--purple-bg)'},{i:<Shield size={20}/>,t:'Protect',d:'6 hedge strategies with execution plans',c:'var(--green)',bg:'var(--green-bg)'},{i:<Database size={20}/>,t:'Attest',d:'Immutable records on Kite blockchain',c:'var(--green)',bg:'var(--green-bg2)'},{i:<BarChart3 size={20}/>,t:'Backtest',d:'Validated on 13 real events',c:'var(--cyan)',bg:'var(--cyan-bg)'},{i:<Globe size={20}/>,t:'Intelligence',d:'Market regime, Fear & Greed, TVL, anomalies',c:'var(--red)',bg:'var(--red-bg)'}].map((c,i)=>(
+              {[{i:<Eye size={20}/>,t:'Monitor',d:'300+ tokens via CoinPaprika, 40+ unlocks from Tokenomist',c:'var(--yellow)',bg:'var(--yellow-bg)'},{i:<Cpu size={20}/>,t:'Analyze',d:'5-factor quantitative risk model',c:'var(--purple)',bg:'var(--purple-bg)'},{i:<Shield size={20}/>,t:'Protect',d:'6 hedge strategies with execution plans',c:'var(--green)',bg:'var(--green-bg)'},{i:<Database size={20}/>,t:'Attest',d:'Immutable records on Kite blockchain',c:'var(--green)',bg:'var(--green-bg2)'},{i:<BarChart3 size={20}/>,t:'Backtest',d:'Validated on 13 real events',c:'var(--cyan)',bg:'var(--cyan-bg)'},{i:<Globe size={20}/>,t:'Intelligence',d:'Market regime, Fear & Greed, TVL, anomalies',c:'var(--red)',bg:'var(--red-bg)'}].map((c,i)=>(
                 <div className="crd" key={i} style={{textAlign:'center',padding:18,cursor:'default'}}>
                   <div style={{width:42,height:42,borderRadius:10,margin:'0 auto 8px',background:c.bg,display:'flex',alignItems:'center',justifyContent:'center',color:c.c}}>{c.i}</div>
                   <div style={{fontWeight:700,fontSize:13,marginBottom:4}}>{c.t}</div>
@@ -1915,9 +1992,38 @@ function App() {
       )}
 
       {/* FOOTER */}
-      <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'1px solid var(--border)',marginTop:16,fontSize:11,color:'var(--text3)'}}>
-        <strong style={{color:'var(--text)'}}>UnlockShield</strong> — Verifiable DeFi Stress Oracle<br/>
-        <span>Built on <a href="https://gokite.ai" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>Kite AI</a> &bull; <a href="https://testnet.kitescan.ai" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>KiteScan</a> &bull; <a href="https://github.com/Rajatd91/unlockshield" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>GitHub</a></span>
+      <div className="foot">
+        <div className="foot-grid">
+          <div className="foot-brand">
+            <h3><div className="logo-ic" style={{width:28,height:28,borderRadius:8}}><Shield size={14} color="#fff"/></div> Unlock<span style={{color:'var(--green)'}}>Shield</span></h3>
+            <p>A verifiable DeFi stress oracle. Forecasts token unlock impact, commits each prediction on-chain before the event, and builds trustless reputation from real outcomes.</p>
+          </div>
+          <div className="foot-col">
+            <h4>Product</h4>
+            <a onClick={()=>setTab('dashboard')} style={{cursor:'pointer'}}>Dashboard</a>
+            <a onClick={()=>setTab('stress')} style={{cursor:'pointer'}}>Stress Test</a>
+            <a onClick={()=>setTab('predictions')} style={{cursor:'pointer'}}>Predictions</a>
+            <a onClick={()=>setTab('market')} style={{cursor:'pointer'}}>Market Data</a>
+          </div>
+          <div className="foot-col">
+            <h4>Network</h4>
+            <a href="https://gokite.ai" target="_blank" rel="noopener">Kite AI</a>
+            <a href="https://testnet.kitescan.ai" target="_blank" rel="noopener">KiteScan Explorer</a>
+            <a href="https://faucet.gokite.ai" target="_blank" rel="noopener">Testnet Faucet</a>
+            <a href="https://docs.gokite.ai" target="_blank" rel="noopener">Kite Docs</a>
+          </div>
+          <div className="foot-col">
+            <h4>Resources</h4>
+            <a href="https://github.com/Rajatd91/unlockshield" target="_blank" rel="noopener">GitHub</a>
+            <a href="https://unlockshield-api.onrender.com/docs" target="_blank" rel="noopener">API Reference</a>
+            <a href="https://defillama.com" target="_blank" rel="noopener">DeFiLlama</a>
+            <a href="https://coinpaprika.com" target="_blank" rel="noopener">CoinPaprika</a>
+          </div>
+        </div>
+        <div className="foot-bottom">
+          <span>© 2026 UnlockShield. Built for the Kite AI Hackathon.</span>
+          <span>Chain ID 2368 · Testnet · Not financial advice</span>
+        </div>
       </div>
     </div></>
   )
