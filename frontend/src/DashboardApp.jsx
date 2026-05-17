@@ -702,7 +702,7 @@ function UnlockTimeline({unlocks,onSelect}) {
   )
 }
 
-function EventRiskBoard({eventStream,unlocks,market,onSelectToken,onOpenStress}) {
+function EventRiskBoard({eventStream,unlocks,market,onSelectToken,onOpenStress,onOpenEvent}) {
   const streamEvents = eventStream?.events || market?.event_intelligence?.top_alerts || []
   const unlockEvents = (unlocks||[]).slice(0,6).map(u => {
     const score = Math.min(100, Math.max(12, num(u.total_supply_percent) * 16 + (daysUntil(u.unlock_date) <= 7 ? 18 : 0)))
@@ -764,7 +764,7 @@ function EventRiskBoard({eventStream,unlocks,market,onSelectToken,onOpenStress})
             return (
               <div className="event-card" key={`${e.event_type}-${i}`} onClick={()=>{
                 if(e.token_symbol) onSelectToken?.({token_symbol:e.token_symbol, token_name:e.token_symbol})
-                else onOpenStress?.()
+                else onOpenEvent?.(e, meta)
               }}>
                 <div className="event-icon" style={{background:meta.bg,color:meta.color}}>{meta.icon}</div>
                 <div>
@@ -916,6 +916,86 @@ function RegimeModal({ regime, onClose }) {
           <strong>Data Sources:</strong> Market breadth from CoinPaprika top 100 tokens • Fear & Greed from Alternative.me API •
           BTC dominance from CoinPaprika global/derived market cap • Market momentum from 24h total market cap change •
           Altcoin strength from non-BTC/ETH sector performance
+        </div>
+      </div>
+    </>
+  )
+}
+
+function EventDetailPanel({event,meta,onClose,onOpenStress}) {
+  if(!event) return null
+  const score = num(event.severity_score)
+  const severityCls = score>=80?'r-c':score>=55?'r-h':score>=35?'r-m':'r-l'
+  const guidance = {
+    'whale_movement': 'Large transfers can precede market-moving sells. Watch order books on the named venues, tighten stops, and treat as a leading indicator for short-term volatility.',
+    'token_unlock': 'Scheduled supply release. Run the stress engine for the specific token to size hedges by recipient type, supply percent, and current regime.',
+    'dex_volume': 'Abnormal pool volume often signals informed flow. Check the top pairs for slippage and consider widening LP ranges before more liquidity migrates.',
+    'macro_event': 'Macro regime shifts change baseline volatility for the entire risk model. Hedge multipliers and confidence intervals auto-adjust in BEAR regimes.',
+    'stablecoin': 'Stablecoin contractions or depeg risk affect funding liquidity for every LP and lender. Watch for redemption pressure on the named issuer.',
+    'lending_event': 'Liquidation cascades amplify drawdowns. Confirm health factors on Aave/Morpho and reduce leverage if the cascade radius widens.',
+    'governance_vote': 'Protocol governance changes can alter tokenomics, emissions, or treasury rules. Read the proposal text before acting.',
+    'regulation': 'Regulatory action is high-impact, low-frequency. Position-size accordingly and avoid concentrated exposure to the affected jurisdiction or asset class.',
+  }[event.event_type] || 'This signal feeds the stress engine. Higher severity means larger volatility/jump adjustments in upcoming simulations.'
+
+  const dataSource = {
+    'whale_movement': 'Etherscan + on-chain transfer logs',
+    'token_unlock': 'Tokenomist + curated unlock database',
+    'dex_volume': 'GeckoTerminal + DEX subgraph aggregators',
+    'macro_event': 'Alternative.me Fear & Greed + market regime composite',
+    'stablecoin': 'DeFiLlama stablecoin supply data',
+    'lending_event': 'DeFiLlama protocol health + Aave/Morpho data',
+    'governance_vote': 'Snapshot + Tally governance feeds',
+    'regulation': 'News aggregator + curated regulatory database',
+  }[event.event_type] || event.source
+
+  return (
+    <>
+      <div className="overlay" onClick={onClose}/>
+      <div className="panel">
+        <div className="panel-h">
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:46,height:46,borderRadius:11,background:meta?.bg||'var(--bg3)',color:meta?.color||'var(--text)',display:'flex',alignItems:'center',justifyContent:'center'}}>{meta?.icon||<Activity size={20}/>}</div>
+            <div>
+              <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}>{meta?.label||'Event'} · {event.source}</div>
+              <div style={{fontSize:17,fontWeight:800,marginTop:2}}>{event.title}</div>
+            </div>
+          </div>
+          <button className="panel-close" onClick={onClose}><X size={16}/></button>
+        </div>
+        <div className="panel-b">
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:13,color:'var(--text2)',lineHeight:1.6}}>{event.description}</div>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:16}}>
+            <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:12,textAlign:'center'}}>
+              <div style={{fontSize:9,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Severity</div>
+              <div style={{fontSize:22,fontWeight:900,color:barClr(score)}}>{score}/100</div>
+              <span className={`rsk ${severityCls}`} style={{marginTop:4,display:'inline-block'}}>{event.severity_label || riskLabel(score)}</span>
+            </div>
+            <div style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:12,textAlign:'center'}}>
+              <div style={{fontSize:9,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',marginBottom:3}}>Detected</div>
+              <div style={{fontSize:13,fontWeight:700}}>{event.timestamp?new Date(event.timestamp).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'—'}</div>
+              <div style={{fontSize:10,color:'var(--text3)',marginTop:4}}>{event.event_type?.replace(/_/g,' ')}</div>
+            </div>
+          </div>
+
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>What this means</div>
+            <div className="info-box" style={{borderLeftColor:meta?.color||'var(--cyan)',background:'var(--bg3)',fontSize:12,lineHeight:1.6}}>{guidance}</div>
+          </div>
+
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>Why it matters to the risk model</div>
+            <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>{meta?.why||'Feeds into the stress engine as a volatility or jump parameter.'} The stress engine recalibrates GARCH(1,1) volatility and Merton jump probability each time the severity changes by more than 10 points.</div>
+          </div>
+
+          <div style={{marginBottom:16,padding:'10px 12px',background:'var(--bg3)',borderRadius:'var(--r3)',fontSize:11,color:'var(--text3)',lineHeight:1.6}}>
+            <strong style={{color:'var(--text)'}}>Data source:</strong> {dataSource}
+          </div>
+
+          <button className="btn btn-p" style={{width:'100%',justifyContent:'center'}} onClick={onOpenStress}>
+            <Activity size={13}/> Run stress test with this signal applied
+          </button>
         </div>
       </div>
     </>
@@ -1093,6 +1173,7 @@ function App() {
   const [newsFilter,setNewsFilter] = useState('all')
   const [headerSearch,setHeaderSearch] = useState('')
   const [showSearchResults,setShowSearchResults] = useState(false)
+  const [selectedEvent,setSelectedEvent] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1181,7 +1262,11 @@ function App() {
       const critical=results.filter(r=>r.risk_score>=55).length
       const onChain=results.filter(r=>r.attestation?.tx_hash&&!r.attestation.tx_hash.startsWith('0x_')&&r.attestation.tx_hash!=='0x'+'0'.repeat(64)).length
       toast('Scan Complete',`${results.length} tokens analyzed, ${critical} high risk, ${onChain} attested on Kite`,'g')
-      await load()
+      // Scroll to scan results so user sees what just happened
+      setTimeout(()=>{
+        const el = document.getElementById('scan-results')
+        if(el) el.scrollIntoView({behavior:'smooth',block:'start'})
+      },200)
     }catch(e){
       console.error(e)
       // Fall back to local risk heuristics so the UI still updates
@@ -1295,6 +1380,13 @@ function App() {
 
   useEffect(() => { if(tab==='predictions') fetchPredictions() }, [tab])
 
+  // Auto-retry backtest if user opens the tab and it's still empty
+  useEffect(() => {
+    if(tab==='backtest' && (!backtest || !backtest.total_events_analyzed)) {
+      runBT()
+    }
+  }, [tab]) // eslint-disable-line
+
   const selectedAnalysis=selectedToken?analyses.find(a=>a.token===(selectedToken.token_symbol||selectedToken.symbol)):null
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
   const resolvedPredictionCount = predictions?.predictions?.filter(p=>p.revealed).length || 0
@@ -1317,6 +1409,7 @@ function App() {
     <div className="app">
       <Toasts toasts={toasts}/>
       {selectedToken&&<TokenPanel token={selectedToken} analysis={selectedAnalysis} unlockInfo={selectedUnlock||selectedToken} onClose={()=>setSelectedToken(null)}/>}
+      {selectedEvent&&<EventDetailPanel event={selectedEvent.event} meta={selectedEvent.meta} onClose={()=>setSelectedEvent(null)} onOpenStress={()=>{setSelectedEvent(null);setTab('stress')}}/>}
       {showRegime&&<RegimeModal regime={regime} onClose={()=>setShowRegime(false)}/>}
 
       {/* HEADER */}
@@ -1526,6 +1619,7 @@ function App() {
               market={market}
               onSelectToken={setSelectedToken}
               onOpenStress={()=>setTab('stress')}
+              onOpenEvent={(event,meta)=>setSelectedEvent({event,meta})}
             />
           </div>
 
@@ -1593,8 +1687,8 @@ function App() {
           </div>
 
           {analyses.length>0&&(
-            <div className="sec fade">
-              <div className="sh"><h2><Activity size={16} color="var(--green)"/> AI Scan Results <span className="cnt">{analyses.length}</span></h2></div>
+            <div className="sec fade" id="scan-results">
+              <div className="sh"><h2><Activity size={16} color="var(--green)"/> AI Scan Results <span className="cnt">{analyses.length}</span></h2><span style={{fontSize:11,color:'var(--text3)'}}>Sorted by risk · click any to expand · attestations linked to KiteScan</span></div>
               {analyses.map((r,i)=>(
                 <div className="crd crd-click" key={i} onClick={()=>setExpanded(expanded===i?null:i)}>
                   <div className="ch">
