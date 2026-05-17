@@ -18,17 +18,17 @@ router = APIRouter()
 
 
 @router.post("/scan")
-async def run_agent_scan():
+async def run_agent_scan(limit: int = 10, days_ahead: int = 30):
     """
     Run a full autonomous agent scan cycle:
       1. Fetch real-time market regime (BULL/BEAR/SIDEWAYS)
-      2. Fetch all upcoming token unlocks (40+ tokens)
+      2. Fetch upcoming token unlocks (limited for speed)
       3. AI-analyze each unlock with market context
       4. Execute hedge strategies for high-risk events
       5. Attest predictions + actions on Kite AI blockchain
 
-    This is what makes UnlockShield autonomous — one call triggers
-    the entire monitor → analyze → protect → attest pipeline.
+    Defaults to top 10 imminent unlocks (next 30 days) so scans
+    complete in seconds. Pass ?limit=40&days_ahead=60 for a deep scan.
     """
     # Step 0: Get market context for regime-adjusted analysis
     market_context = None
@@ -37,8 +37,13 @@ async def run_agent_scan():
     except Exception as e:
         print(f"Market context fetch failed (continuing without): {e}")
 
-    # Step 1: Fetch upcoming unlocks
-    unlocks = await fetch_upcoming_unlocks(days_ahead=60)
+    # Step 1: Fetch upcoming unlocks (limit for performance)
+    unlocks = await fetch_upcoming_unlocks(days_ahead=days_ahead)
+    # Sort by supply impact (highest first) then by date (soonest first)
+    unlocks = sorted(
+        unlocks,
+        key=lambda u: (-(u.total_supply_percent or 0), u.unlock_date),
+    )[:max(1, min(int(limit), 40))]
     scan_results = []
 
     for unlock in unlocks:
