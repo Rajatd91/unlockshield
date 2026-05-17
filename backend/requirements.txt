@@ -1,8 +1,27 @@
+# UnlockShield — Backend Dependencies
+# Autonomous AI Agent for Token Unlock Hedging on Kite AI
+
+# Core framework
 fastapi>=0.104.0
 uvicorn>=0.24.0
+
+# HTTP client (CoinGecko, Tokenomist, DeFiLlama, Fear&Greed APIs)
 httpx>=0.25.0
+
+# Blockchain (Kite AI EVM chain — attestations)
 web3>=6.13.0
+
+# Environment & config
 python-dotenv>=1.0.0
+
+# Scheduling (autonomous scan cycles)
 apscheduler>=3.10.0
+
+# Data validation
 pydantic>=2.5.0
+
+# AI Engine (Claude Sonnet 4 — multi-factor risk analysis)
 anthropic>=0.40.0
+
+# Stress Simulation Engine (RS-GARCH Monte Carlo with Jump-Diffusion)
+numpy>=1.24.0

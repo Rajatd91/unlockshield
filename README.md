@@ -1,8 +1,8 @@
-# UnlockShield
+# UnlockShield — Verifiable DeFi Stress Oracle
 
-**Autonomous AI agent that protects DeFi portfolios from token unlock dumps — powered by Claude Sonnet 4, built on Kite AI blockchain.**
+**The first DeFi risk infrastructure that combines regime-switching stochastic simulation, verifiable on-chain predictions, and autonomous portfolio protection — built on Kite AI blockchain.**
 
-Built for the **Kite AI Global Hackathon 2026** — Agentic Trading & Portfolio Management track.
+Built for the **Kite AI Global Hackathon 2026** — Track 2: Agentic Trading & Portfolio Management.
 
 ---
 
@@ -23,26 +23,34 @@ Real examples from 2024-2025:
 
 Data trackers show **when** unlocks happen. But **no tool autonomously acts on this intelligence to protect holders.** That's the gap UnlockShield fills.
 
-## The Solution: Autonomous Monitor → Analyze → Protect → Attest
+## The Solution: Detect → Simulate → Commit → Protect → Verify
 
-UnlockShield is a fully autonomous AI agent that runs a 4-stage pipeline:
+UnlockShield is **DeFi risk infrastructure** — not just another AI trading bot. It runs a 5-stage pipeline that combines academic-grade simulation with provably honest on-chain predictions:
 
 ```
-STAGE 1: MONITOR    → Scans 300+ tokens for upcoming unlock events
-                       Sources: CoinGecko (prices), Tokenomist (vesting), DeFiLlama (TVL)
+STAGE 1: DETECT     → Multi-Event Intelligence Engine scans 8 event types
+                       Token unlocks, whale movements, DEX spikes, macro events,
+                       stablecoin flows, liquidation cascades, regulatory news, governance
 
-STAGE 2: ANALYZE    → Claude Sonnet 4 runs 5-factor quantitative risk analysis
-                       Factors: Supply Shock (35%), History (25%), Recipients (20%),
-                                Market Regime (10%), Time Urgency (10%)
+STAGE 2: SIMULATE   → RS-GARCH Monte Carlo with Jump-Diffusion (2000 paths)
+                       Regime-switching volatility | Calibrated unlock shocks
+                       VaR, CVaR, IL for Uniswap v3 LP positions
+                       Academic: Bollerslev (1986), Merton (1976), Hamilton (1989)
 
-STAGE 3: PROTECT    → Selects from 6 institutional hedge strategies
+STAGE 3: COMMIT     → keccak256 prediction hash committed to Kite AI BEFORE event
+                       Commit-reveal cryptography | Tamper-proof predictions
+                       Anyone can verify prediction was made pre-event
+
+STAGE 4: PROTECT    → 6 institutional hedge strategies + LP range recommendations
+                       Regime-adjusted sizing | Claude Sonnet 4 reasoning
                        FULL_EXIT → REDUCE_POSITION → SHORT_HEDGE → OPTIONS_PUT → DCA_EXIT → HOLD
 
-STAGE 4: ATTEST     → Records every prediction + action on Kite AI blockchain
-                       Immutable, verifiable, reputation-building
+STAGE 5: VERIFY     → After event: reveal prediction, score accuracy, update reputation
+                       On-chain reputation (0-1000) | Public scorecard | Grade S to F
+                       Builds trustless track record for capital delegation
 ```
 
-One API call (`POST /api/agent/scan`) triggers the entire pipeline autonomously.
+One API call triggers the entire pipeline. The key innovation: **predictions are cryptographically committed before events and publicly verified after — creating the first provably honest DeFi risk oracle.**
 
 ## Architecture
 
@@ -219,6 +227,54 @@ Validated on **13 real historical unlock events** from 2024-2025:
 | Yield | L-USDC (Lucid Protocol) | 4% APY on idle hedged funds |
 | Indexing | Goldsky Subgraph | Real-time GraphQL attestation indexer |
 | Cross-chain | LayerZero v2 | L-USDC bridging to/from Kite |
+| Simulation | NumPy + custom GARCH | RS-GARCH Monte Carlo stress engine |
+| Prediction Oracle | keccak256 commit-reveal | Verifiable on-chain predictions |
+
+## Stress Simulation Engine (RS-GARCH-MC-JD)
+
+The intellectual core — a Regime-Switching GARCH(1,1) Monte Carlo simulator with Merton Jump-Diffusion:
+
+```
+Academic Foundation:
+  • GARCH(1,1): Bollerslev (1986) — volatility clustering
+  • Jump-Diffusion: Merton (1976) — sudden price shocks  
+  • Regime-Switching: Hamilton (1989) — multi-state market dynamics
+  • GBM base: Black-Scholes (1973) — continuous price paths
+
+Pipeline:
+  1. Calibrate GARCH from 30-day realized volatility
+  2. Detect regime (BULL/BEAR/SIDEWAYS) via 4-signal model
+  3. Generate 2000 stochastic paths with regime transitions (Markov chain)
+  4. Inject jump-diffusion shocks calibrated from 180+ historical unlock events
+  5. Compute: VaR(95%), CVaR(95%), Max Drawdown, Impermanent Loss (Uniswap v3)
+  6. Multi-scenario: base case, bull override, bear override, no-unlock counterfactual
+
+Output:
+  • Probability distributions: P(loss > 5%), P(loss > 10%), P(loss > 20%)
+  • LP stress test: narrow (±5%) vs medium (±10%) vs wide (±20%) range comparison
+  • Unlock impact isolation: how much ADDITIONAL risk the unlock creates
+  • Hedge recommendation with regime-adjusted sizing
+```
+
+This directly supports the dissertation: "Stress Testing AMM Wrappers Under Realistic Market Volatility."
+
+## Verifiable Prediction Oracle (Commit-Reveal)
+
+```
+COMMIT (before event):
+  hash = keccak256(token, predicted_impact_bps, unlock_timestamp, salt)
+  → Store hash on Kite AI blockchain → tamper-proof, timestamped
+
+REVEAL (after event):
+  → Submit preimage (prediction + salt) → contract verifies hash matches
+  → Score accuracy → update on-chain reputation (0-1000)
+
+VERIFY (anyone, anytime):
+  → Call verifyCommitment(commitId, impactBps, salt) → returns true/false
+  → Proves prediction was made BEFORE the event — no post-hoc claims
+```
+
+Smart contracts: `UnlockShieldOracle.sol` (commit-reveal + reputation) and `UnlockShieldAttestation.sol` (legacy attestations).
 
 ## Kite Ecosystem Integration
 
@@ -312,6 +368,40 @@ Deploy: `goldsky subgraph deploy unlockshield-attestations/v1 --from-abi --chain
 | `/api/wallet/settle` | POST | Record settlement on Kite contract |
 | `/api/wallet/user-operation` | POST | Prepare ERC-4337 UserOp for bundler |
 | `/api/wallet/transactions` | GET | Full wallet transaction history |
+
+### Stress Testing (RS-GARCH Monte Carlo)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/stress/run/{symbol}` | GET | Full stress test — 2000 MC paths, multi-scenario, LP IL |
+| `/api/stress/quick/{symbol}` | GET | Quick scan — 500 paths, key metrics only |
+| `/api/stress/regime` | GET | Live regime detection from BTC 30d data |
+| `/api/stress/scan` | GET | Stress scan all upcoming unlocks, ranked by severity |
+
+### Verifiable Predictions (Commit-Reveal Oracle)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/predictions/create/{symbol}` | POST | Run stress test → commit keccak256 hash on-chain |
+| `/api/predictions/reveal/{commit_id}` | POST | Reveal prediction after event, score accuracy |
+| `/api/predictions/history` | GET | Prediction history with accuracy scores |
+| `/api/predictions/reputation` | GET | Agent reputation (0-1000, grade S to F) |
+| `/api/predictions/verify/{commit_id}` | GET | Public verification of any prediction commitment |
+
+### Event Intelligence (Multi-Source)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/events/stream` | GET | All events sorted by severity (filter by type) |
+| `/api/events/summary` | GET | Dashboard intelligence summary |
+| `/api/events/macro` | GET | Fed funds, CPI, Treasury yields, S&P 500 |
+| `/api/events/whales` | GET | Large ETH transfers to/from exchanges |
+| `/api/events/stablecoins` | GET | Stablecoin supply tracker (mint/burn) |
+| `/api/events/dex` | GET | DEX pool analytics from GeckoTerminal |
+| `/api/events/yields` | GET | Top DeFi yields (>$1M TVL pools) |
+| `/api/events/bridges` | GET | Cross-chain bridge volumes |
+| `/api/events/liquidations` | GET | Lending protocol health / liquidation signals |
+| `/api/events/news` | GET | Crypto news with regulatory classification |
 
 ### Backtesting
 

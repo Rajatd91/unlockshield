@@ -497,6 +497,14 @@ async def get_full_market_intelligence() -> Dict:
     top_gainers = sorted_by_change[-5:][::-1]
     top_losers = sorted_by_change[:5]
 
+    # Fetch event intelligence (lightweight summary only — full stream via /api/events/stream)
+    event_summary = {}
+    try:
+        from app.services.event_engine import get_event_intelligence_summary
+        event_summary = await get_event_intelligence_summary()
+    except Exception as e:
+        print(f"Event engine not available: {e}")
+
     intel = {
         "timestamp": datetime.utcnow().isoformat(),
         "global": global_stats,
@@ -514,6 +522,7 @@ async def get_full_market_intelligence() -> Dict:
         "top_gainers": top_gainers,
         "top_losers": top_losers,
         "volume_anomalies": anomalies,
+        "event_intelligence": event_summary,
     }
 
     _set_cached("full_intel", intel)
@@ -566,15 +575,15 @@ def _detect_regime(tokens: list, global_stats: dict, fear_greed: dict) -> Dict:
         "bias": "BULL" if mcap_change > 2 else "BEAR" if mcap_change < -2 else "NEUTRAL",
     })
 
-    # Signal 5: Meme coin strength (canary in the coal mine)
-    meme_tokens = [t for t in tokens if t.get("sector") == "Meme"]
-    if meme_tokens:
-        meme_avg = sum(t.get("change_24h", 0) for t in meme_tokens) / len(meme_tokens)
+    # Signal 5: Altcoin strength (non-BTC/ETH market health indicator)
+    altcoin_tokens = [t for t in tokens if t.get("symbol") not in ("BTC", "ETH") and t.get("sector") != "Stable"]
+    if altcoin_tokens:
+        alt_avg = sum(t.get("change_24h", 0) for t in altcoin_tokens[:50]) / min(len(altcoin_tokens), 50)
         signals.append({
-            "name": "Meme Strength",
-            "value": f"{meme_avg:+.1f}% avg",
-            "score": 50 + meme_avg * 5,
-            "bias": "BULL" if meme_avg > 5 else "BEAR" if meme_avg < -5 else "NEUTRAL",
+            "name": "Altcoin Strength",
+            "value": f"{alt_avg:+.1f}% avg (top 50)",
+            "score": 50 + alt_avg * 5,
+            "bias": "BULL" if alt_avg > 3 else "BEAR" if alt_avg < -3 else "NEUTRAL",
         })
 
     # Composite regime

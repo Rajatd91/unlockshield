@@ -66,7 +66,7 @@ async def list_supported_tokens(
 async def get_market_regime():
     """
     Multi-signal market regime detection: BULL / BEAR / SIDEWAYS.
-    Signals: market breadth, Fear & Greed, BTC dominance, momentum, meme strength.
+    Signals: market breadth, Fear & Greed, BTC dominance, momentum, altcoin strength.
     Risk engine adjusts hedge sizing based on regime.
     """
     overview = await fetch_market_overview()

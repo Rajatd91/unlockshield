@@ -619,6 +619,13 @@ function TokenPanel({token,analysis,unlockInfo,onClose}) {
 /* ═══ MAIN APP ═══ */
 function App() {
   const [tab,setTab] = useState('dashboard')
+  const [stressToken,setStressToken] = useState('ARB')
+  const [stressResult,setStressResult] = useState(null)
+  const [stressLoading,setStressLoading] = useState(false)
+  const [stressParams,setStressParams] = useState({unlock_pct:2.0,unlock_days:7,recipient:'investor',is_cliff:false,lp_range:0.10})
+  const [predictions,setPredictions] = useState(null)
+  const [predLoading,setPredLoading] = useState(false)
+  const [predReputation,setPredReputation] = useState(null)
   const [unlocks,setUnlocks] = useState([])
   const [analyses,setAnalyses] = useState([])
   const [hedges,setHedges] = useState([])
@@ -707,6 +714,47 @@ function App() {
 
   // Reset page on filter change
   useEffect(()=>{ setMarketPage(1) },[sectorFilter, tokenSearch])
+
+  // Stress Test
+  const runStressTest = async () => {
+    setStressLoading(true)
+    try {
+      const p = stressParams
+      const res = await fetch(`${API}/api/stress/run/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}&lp_range=${p.lp_range}&n_paths=2000`)
+      const data = await res.json()
+      setStressResult(data)
+      toast('Stress Test Complete',`${stressToken}: VaR(95%)=${data?.scenarios?.base_case?.var_95}%`,'g')
+    } catch(e) { toast('Stress Test Error',e.message,'r') }
+    setStressLoading(false)
+  }
+
+  // Predictions
+  const createPrediction = async () => {
+    setPredLoading(true)
+    try {
+      const p = stressParams
+      const res = await fetch(`${API}/api/predictions/create/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}`,{method:'POST'})
+      const data = await res.json()
+      toast('Prediction Committed',`${stressToken}: ${data?.predicted_impact}% impact, hash: ${data?.commit_hash?.slice(0,12)}...`,'g')
+      fetchPredictions()
+    } catch(e) { toast('Prediction Error',e.message,'r') }
+    setPredLoading(false)
+  }
+
+  const fetchPredictions = async () => {
+    try {
+      const [histRes, repRes] = await Promise.all([
+        fetch(`${API}/api/predictions/history`),
+        fetch(`${API}/api/predictions/reputation`)
+      ])
+      const hist = await histRes.json()
+      const rep = await repRes.json()
+      setPredictions(hist)
+      setPredReputation(rep)
+    } catch(e) { console.error('Predictions fetch error:', e) }
+  }
+
+  useEffect(() => { if(tab==='predictions') fetchPredictions() }, [tab])
 
   const selectedAnalysis=selectedToken?analyses.find(a=>a.token===(selectedToken.token_symbol||selectedToken.symbol)):null
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
@@ -838,7 +886,7 @@ function App() {
 
       {/* TABS */}
       <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'100+'})`},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'portfolio',i:<PieChart size={13}/>,l:'Portfolio'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'100+'})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'portfolio',i:<PieChart size={13}/>,l:'Portfolio'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -1043,6 +1091,248 @@ function App() {
         </div>
       )}
 
+      {/* ═══ STRESS TEST ═══ */}
+      {tab==='stress'&&(
+        <div className="fade">
+          <div className="sec">
+            <div className="sh"><h2><Activity size={16} color="var(--green)"/> RS-GARCH Monte Carlo Stress Engine</h2><span className="bdg">Phase 2</span></div>
+            <div className="crd" style={{cursor:'default',marginBottom:14}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr 1fr auto',gap:10,alignItems:'end'}}>
+                <div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Token</div>
+                  <select value={stressToken} onChange={e=>setStressToken(e.target.value)} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit',fontWeight:600,background:'var(--bg)'}}>
+                    {['ARB','OP','APT','TIA','SUI','SEI','IMX','DYDX','WLD','STRK','JTO','PYTH','JUP','W','ENA','ETHFI','ALT','MANTA','DYM','PIXEL'].map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Unlock %</div>
+                  <input type="number" value={stressParams.unlock_pct} onChange={e=>setStressParams(p=>({...p,unlock_pct:parseFloat(e.target.value)||0}))} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit'}} step="0.5" min="0.1" max="50"/>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Days Until</div>
+                  <input type="number" value={stressParams.unlock_days} onChange={e=>setStressParams(p=>({...p,unlock_days:parseInt(e.target.value)||7}))} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit'}} min="1" max="30"/>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>Recipient</div>
+                  <select value={stressParams.recipient} onChange={e=>setStressParams(p=>({...p,recipient:e.target.value}))} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit',background:'var(--bg)'}}>
+                    {['investor','investor/team','investor/team cliff','team','foundation','ecosystem','community'].map(t=><option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:'.5px'}}>LP Range</div>
+                  <select value={stressParams.lp_range} onChange={e=>setStressParams(p=>({...p,lp_range:parseFloat(e.target.value)}))} style={{width:'100%',padding:'8px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit',background:'var(--bg)'}}>
+                    <option value="0.05">±5% (Narrow)</option>
+                    <option value="0.10">±10% (Medium)</option>
+                    <option value="0.20">±20% (Wide)</option>
+                    <option value="0.50">±50% (Full)</option>
+                  </select>
+                </div>
+                <div style={{display:'flex',gap:6}}>
+                  <label style={{display:'flex',alignItems:'center',gap:4,fontSize:11,fontWeight:600,cursor:'pointer'}}><input type="checkbox" checked={stressParams.is_cliff} onChange={e=>setStressParams(p=>({...p,is_cliff:e.target.checked}))}/> Cliff</label>
+                  <button className="btn btn-p" onClick={runStressTest} disabled={stressLoading}>{stressLoading?<><RefreshCw size={13} className="spin"/> Running...</>:<><Play size={13}/> Run Stress Test</>}</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {stressResult&&(
+            <>
+              {/* Risk Overview */}
+              <div className="sec">
+                <div className="sh"><h2><AlertTriangle size={16} color="var(--red)"/> Risk Metrics — {stressResult.token}</h2><span className={`rgm rgm-${(stressResult.regime_detected||'sideways').toLowerCase()}`}>{stressResult.regime_detected} ({(stressResult.regime_confidence*100).toFixed(0)}%)</span></div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10,marginBottom:14}}>
+                  {[
+                    {l:'VaR (95%)',v:`${stressResult.scenarios?.base_case?.var_95}%`,c:stressResult.scenarios?.base_case?.var_95<-15?'var(--red)':'var(--yellow)'},
+                    {l:'CVaR (95%)',v:`${stressResult.scenarios?.base_case?.cvar_95}%`,c:'var(--red)'},
+                    {l:'P(Loss>10%)',v:`${(stressResult.scenarios?.base_case?.prob_loss_gt_10pct*100).toFixed(1)}%`,c:stressResult.scenarios?.base_case?.prob_loss_gt_10pct>0.5?'var(--red)':'var(--yellow)'},
+                    {l:'Max Drawdown',v:`${stressResult.scenarios?.base_case?.max_drawdown_worst}%`,c:'var(--red)'},
+                    {l:'Mean Return',v:`${stressResult.scenarios?.base_case?.mean_return}%`,c:stressResult.scenarios?.base_case?.mean_return<0?'var(--red)':'var(--green)'},
+                  ].map((m,i)=>(
+                    <div key={i} className="bts"><div className="bv" style={{color:m.c,fontSize:18}}>{m.v}</div><div className="bl">{m.l}</div></div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Scenario Comparison */}
+              <div className="sec">
+                <div className="sh"><h2><BarChart3 size={16} color="var(--blue)"/> Scenario Analysis (2000 Monte Carlo Paths)</h2></div>
+                <div className="tw"><table><thead><tr><th>Scenario</th><th>VaR(95%)</th><th>CVaR(95%)</th><th>P(Loss>10%)</th><th>Mean Return</th><th>Skewness</th><th>Kurtosis</th></tr></thead><tbody>
+                  {Object.entries(stressResult.scenarios||{}).map(([k,v])=>(
+                    <tr key={k}><td style={{fontWeight:600}}>{k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</td>
+                    <td style={{color:v.var_95<-15?'var(--red)':'var(--yellow)',fontWeight:700}}>{v.var_95}%</td>
+                    <td style={{color:'var(--red)',fontWeight:700}}>{v.cvar_95}%</td>
+                    <td>{(v.prob_loss_gt_10pct*100).toFixed(1)}%</td>
+                    <td style={{color:v.mean_return<0?'var(--red)':'var(--green)',fontWeight:600}}>{v.mean_return}%</td>
+                    <td>{v.skewness}</td>
+                    <td>{v.kurtosis}</td></tr>
+                  ))}
+                </tbody></table></div>
+              </div>
+
+              {/* Unlock Impact Analysis */}
+              {stressResult.unlock_impact_analysis&&(
+                <div className="sec">
+                  <div className="sh"><h2><Lock size={16} color="var(--yellow)"/> Unlock Impact Isolation</h2><span className={`rsk ${stressResult.unlock_impact_analysis.unlock_is_material?'r-c':'r-l'}`}>{stressResult.unlock_impact_analysis.unlock_is_material?'MATERIAL':'NON-MATERIAL'}</span></div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{stressResult.unlock_impact_analysis.additional_var_95}%</div><div className="bl">Additional VaR(95%)</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{stressResult.unlock_impact_analysis.additional_cvar_95}%</div><div className="bl">Additional CVaR</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--yellow)'}}>{stressResult.unlock_impact_analysis.additional_il}%</div><div className="bl">Additional IL</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{(stressResult.unlock_impact_analysis.prob_increase_gt10*100).toFixed(1)}%</div><div className="bl">P(&gt;10%) Increase</div></div>
+                  </div>
+                </div>
+              )}
+
+              {/* LP Stress Test */}
+              {stressResult.lp_stress_test&&(
+                <div className="sec">
+                  <div className="sh"><h2><Layers size={16} color="var(--purple)"/> LP Impermanent Loss Stress Test (Uniswap v3)</h2></div>
+                  <div className="tw"><table><thead><tr><th>Range Width</th><th>Mean IL</th><th>IL (95th pct)</th><th>Max IL</th></tr></thead><tbody>
+                    {Object.entries(stressResult.lp_stress_test).filter(([k])=>k!=='conclusion').map(([k,v])=>(
+                      <tr key={k}><td style={{fontWeight:600}}>{v.range}</td>
+                      <td>{v.il_mean}%</td>
+                      <td style={{color:v.il_95th>5?'var(--red)':'var(--yellow)',fontWeight:600}}>{v.il_95th}%</td>
+                      <td style={{color:'var(--red)',fontWeight:700}}>{v.il_max}%</td></tr>
+                    ))}
+                  </tbody></table></div>
+                  <div className="info-box" style={{borderColor:'var(--purple)',background:'var(--purple-bg)',marginTop:10,fontSize:11}}>
+                    {stressResult.lp_stress_test.conclusion}
+                  </div>
+                </div>
+              )}
+
+              {/* Hedge Recommendation */}
+              {stressResult.hedge_recommendation&&(
+                <div className="sec">
+                  <div className="sh"><h2><Shield size={16} color="var(--green)"/> Hedge Recommendation</h2><span className={`rsk ${stressResult.hedge_recommendation.risk_tier==='CRITICAL'?'r-c':stressResult.hedge_recommendation.risk_tier==='HIGH'?'r-h':'r-m'}`}>{stressResult.hedge_recommendation.risk_tier}</span></div>
+                  <div className="crd" style={{cursor:'default',borderLeft:`3px solid ${stressResult.hedge_recommendation.risk_tier==='CRITICAL'?'var(--red)':stressResult.hedge_recommendation.risk_tier==='HIGH'?'var(--yellow)':'var(--green)'}`}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:12}}>
+                      <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Action</div><div style={{fontSize:16,fontWeight:800}}>{stressResult.hedge_recommendation.recommended_action?.replace(/_/g,' ')}</div></div>
+                      <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Hedge Size</div><div style={{fontSize:16,fontWeight:800,color:'var(--green)'}}>{stressResult.hedge_recommendation.hedge_size_pct}%</div></div>
+                      <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Urgency</div><div style={{fontSize:16,fontWeight:800,color:stressResult.hedge_recommendation.urgency==='IMMEDIATE'?'var(--red)':'var(--yellow)'}}>{stressResult.hedge_recommendation.urgency}</div></div>
+                    </div>
+                    <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>{stressResult.hedge_recommendation.rationale}</div>
+                    {stressResult.hedge_recommendation.lp_warning&&<div className="info-box" style={{borderColor:'var(--yellow)',background:'var(--yellow-bg)',marginTop:10,fontSize:11}}>{stressResult.hedge_recommendation.lp_warning}</div>}
+                  </div>
+                </div>
+              )}
+
+              {/* Methodology */}
+              <div className="sec">
+                <div className="sh"><h2><Cpu size={16} color="var(--cyan)"/> Methodology</h2></div>
+                <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--cyan)'}}>
+                  <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                    {stressResult.methodology&&Object.entries(stressResult.methodology).map(([k,v])=>(
+                      <div key={k} style={{fontSize:11}}><span style={{color:'var(--text3)',fontWeight:600}}>{k.replace(/_/g,' ')}:</span> <span style={{fontWeight:500}}>{v}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {!stressResult&&!stressLoading&&(
+            <div className="empty"><Activity size={40} color="var(--text3)" style={{marginBottom:8}}/><h3 style={{fontSize:16,fontWeight:700}}>Configure & Run Stress Test</h3><p>Select a token and unlock parameters above, then click "Run Stress Test" to generate a full RS-GARCH Monte Carlo simulation with 2000 paths.</p></div>
+          )}
+        </div>
+      )}
+
+      {/* ═══ PREDICTIONS ═══ */}
+      {tab==='predictions'&&(
+        <div className="fade">
+          <div className="sec">
+            <div className="sh"><h2><Target size={16} color="var(--green)"/> Verifiable Prediction Oracle</h2><span className="bdg">Phase 3</span></div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
+              {/* Create Prediction */}
+              <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:12,display:'flex',alignItems:'center',gap:6}}><Lock size={14}/> Commit New Prediction</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:12}}>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>Token</div>
+                    <select value={stressToken} onChange={e=>setStressToken(e.target.value)} style={{width:'100%',padding:'7px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit',fontWeight:600,background:'var(--bg)'}}>
+                      {['ARB','OP','APT','TIA','SUI','SEI','IMX','DYDX','WLD','STRK'].map(t=><option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>Unlock %</div>
+                    <input type="number" value={stressParams.unlock_pct} onChange={e=>setStressParams(p=>({...p,unlock_pct:parseFloat(e.target.value)||0}))} style={{width:'100%',padding:'7px 10px',borderRadius:6,border:'1px solid var(--border)',fontSize:12,fontFamily:'inherit'}} step="0.5"/>
+                  </div>
+                </div>
+                <button className="btn btn-p" style={{width:'100%',justifyContent:'center'}} onClick={createPrediction} disabled={predLoading}>{predLoading?<><RefreshCw size={13} className="spin"/> Committing...</>:<><Lock size={13}/> Run Stress Test & Commit Prediction</>}</button>
+                <div style={{fontSize:10,color:'var(--text3)',marginTop:8,lineHeight:1.5}}>Runs RS-GARCH MC simulation → generates prediction → commits keccak256 hash to Kite AI blockchain BEFORE the unlock event. Provably honest.</div>
+              </div>
+
+              {/* Reputation */}
+              <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--purple)'}}>
+                <div style={{fontWeight:700,fontSize:14,marginBottom:12,display:'flex',alignItems:'center',gap:6}}><Shield size={14}/> Agent Reputation</div>
+                {predReputation?.stats?(
+                  <>
+                    <div style={{textAlign:'center',marginBottom:14}}>
+                      <div style={{fontSize:48,fontWeight:900,color:'var(--green)'}}>{predReputation.stats.grade}</div>
+                      <div style={{fontSize:12,color:'var(--text3)',fontWeight:600}}>{predReputation.stats.reputation_score}/1000</div>
+                    </div>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
+                      <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.total_predictions}</div><div className="bl">Total Predictions</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16,color:'var(--green)'}}>{predReputation.stats.accuracy_rate}%</div><div className="bl">Accuracy Rate</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.streak}</div><div className="bl">Current Streak</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.avg_error}%</div><div className="bl">Avg Error</div></div>
+                    </div>
+                  </>
+                ):(
+                  <div style={{textAlign:'center',padding:'24px 0'}}>
+                    <div style={{fontSize:48,fontWeight:900,color:'var(--text3)'}}>—</div>
+                    <div style={{fontSize:12,color:'var(--text3)',marginTop:4}}>No predictions yet. Commit your first prediction to start building reputation.</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Prediction History */}
+          <div className="sec">
+            <div className="sh"><h2><Database size={16} color="var(--cyan)"/> Prediction History</h2>{predictions?.predictions?.length>0&&<span className="cnt">{predictions.predictions.length}</span>}</div>
+            {predictions?.predictions?.length>0?(
+              <div className="tw"><table><thead><tr><th>Token</th><th>Predicted Impact</th><th>Confidence</th><th>Regime</th><th>Committed</th><th>On-Chain</th><th>Status</th><th>Accuracy</th></tr></thead><tbody>
+                {predictions.predictions.map((p,i)=>(
+                  <tr key={i}>
+                    <td style={{fontWeight:700}}>{p.token}</td>
+                    <td style={{fontWeight:700,color:'var(--red)'}}>{p.predicted_impact}%</td>
+                    <td>{(p.confidence*100).toFixed(0)}%</td>
+                    <td><span className={`rgm rgm-${(p.regime||'sideways').toLowerCase()}`}>{p.regime}</span></td>
+                    <td style={{fontSize:11,color:'var(--text3)'}}>{new Date(p.committed_at).toLocaleDateString()}</td>
+                    <td>{p.on_chain?<CheckCircle size={14} color="var(--green)"/>:<Clock size={14} color="var(--text3)"/>}</td>
+                    <td>{p.revealed?<span className="rsk r-l">Revealed</span>:<span className="rsk r-m">Pending</span>}</td>
+                    <td style={{fontWeight:700,color:p.accuracy>=80?'var(--green)':p.accuracy>=50?'var(--yellow)':'var(--red)'}}>{p.accuracy!=null?`${p.accuracy}/100`:'—'}</td>
+                  </tr>
+                ))}
+              </tbody></table></div>
+            ):(
+              <div className="empty"><Target size={40} color="var(--text3)" style={{marginBottom:8}}/><h3 style={{fontSize:16,fontWeight:700}}>No Predictions Yet</h3><p>Create your first verifiable prediction using the form above. Each prediction runs a full stress simulation and commits the result on-chain.</p></div>
+            )}
+          </div>
+
+          {/* How It Works */}
+          <div className="sec">
+            <div className="sh"><h2><Info size={16} color="var(--blue)"/> How Verifiable Predictions Work</h2></div>
+            <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--blue)'}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+                {[
+                  {n:'1. Stress Test',d:'RS-GARCH Monte Carlo simulation generates probability distributions for the token under unlock stress.',ic:'⚡'},
+                  {n:'2. Commit Hash',d:'keccak256(token, predicted_impact, timestamp, salt) committed to Kite AI blockchain BEFORE the event.',ic:'🔒'},
+                  {n:'3. Event Occurs',d:'Token unlock happens. Real price impact is observed and recorded from market data.',ic:'📊'},
+                  {n:'4. Reveal & Score',d:'Prediction revealed, hash verified on-chain, accuracy scored. Reputation updated.',ic:'✅'},
+                ].map((s,i)=>(
+                  <div key={i} style={{textAlign:'center'}}>
+                    <div style={{fontSize:28,marginBottom:6}}>{s.ic}</div>
+                    <div style={{fontSize:12,fontWeight:700,marginBottom:4}}>{s.n}</div>
+                    <div style={{fontSize:10,color:'var(--text3)',lineHeight:1.5}}>{s.d}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ BACKTEST ═══ */}
       {tab==='backtest'&&(
         <div className="fade">
@@ -1162,7 +1452,7 @@ function App() {
 
       {/* FOOTER */}
       <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'1px solid var(--border)',marginTop:16,fontSize:11,color:'var(--text3)'}}>
-        <strong style={{color:'var(--text)'}}>UnlockShield</strong> — Autonomous AI Agent for Token Unlock Hedging<br/>
+        <strong style={{color:'var(--text)'}}>UnlockShield</strong> — Verifiable DeFi Stress Oracle<br/>
         <span>Built on <a href="https://gokite.ai" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>Kite AI</a> &bull; <a href="https://testnet.kitescan.ai" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>KiteScan</a> &bull; <a href="https://github.com/Rajatd91/unlockshield" target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>GitHub</a></span>
       </div>
     </div></>

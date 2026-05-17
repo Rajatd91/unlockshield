@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.routers import unlocks, agent, portfolio, backtest, market, wallet
+from app.routers import unlocks, agent, portfolio, backtest, market, wallet, events, stress, predictions
 
 app = FastAPI(
     title="UnlockShield API",
@@ -63,3 +63,6 @@ app.include_router(portfolio.router, prefix="/api/portfolio", tags=["Portfolio"]
 app.include_router(backtest.router, prefix="/api/backtest", tags=["Backtest"])
 app.include_router(market.router, prefix="/api/market", tags=["Market Data"])
 app.include_router(wallet.router, prefix="/api/wallet", tags=["Agent Wallet"])
+app.include_router(events.router, prefix="/api/events", tags=["Event Intelligence"])
+app.include_router(stress.router, prefix="/api/stress", tags=["Stress Testing"])
+app.include_router(predictions.router, prefix="/api/predictions", tags=["Verifiable Predictions"])
