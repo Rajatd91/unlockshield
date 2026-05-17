@@ -16,6 +16,7 @@ from app.services.market_data import (
 from app.services.data_providers import (
     defillama_tvl_overview,
     compute_correlation_risk,
+    coinpaprika_market_full,
 )
 
 router = APIRouter()
@@ -60,6 +61,26 @@ async def list_supported_tokens(
         return {"tokens": tokens, "count": len(tokens), "note": "Tokens with known vesting/unlock schedules"}
     all_tokens = get_supported_tokens()
     return {"tokens": all_tokens, "count": len(all_tokens), "note": "Directly mapped tokens. API covers 300+ dynamically."}
+
+
+@router.get("/coinpaprika")
+async def get_coinpaprika_universe(
+    limit: int = Query(default=300, ge=1, le=500)
+):
+    """
+    Lightweight live market universe from CoinPaprika.
+
+    This endpoint intentionally avoids the heavier market overview/event
+    intelligence pipeline so the frontend can fill the market table quickly
+    with the top 300 assets even while other sources are warming up.
+    """
+    tokens = await coinpaprika_market_full(limit=limit)
+    return {
+        "tokens": tokens,
+        "count": len(tokens),
+        "source": tokens[0].get("data_source", "coinpaprika") if tokens else "unavailable",
+        "quality": tokens[0].get("data_quality", "unknown") if tokens else "unavailable",
+    }
 
 
 @router.get("/regime")

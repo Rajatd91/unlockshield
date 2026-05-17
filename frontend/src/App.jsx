@@ -21,6 +21,19 @@ const fetchJson = async (path, fallback, timeoutMs = 9000) => {
     clearTimeout(timer)
   }
 }
+const fetchExternalJson = async (url, fallback, timeoutMs = 12000) => {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { signal: ctrl.signal })
+    if (!res.ok) return fallback
+    return await res.json()
+  } catch {
+    return fallback
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    CSS
@@ -361,6 +374,15 @@ const strategyForRisk = s => s>=80?'FULL_EXIT':s>=55?'SHORT_HEDGE':s>=35?'DCA_EX
 const stratCls = s => ({FULL_EXIT:'s-exit',REDUCE_POSITION:'s-reduce',SHORT_HEDGE:'s-hedge',OPTIONS_PUT:'s-put',DCA_EXIT:'s-dca'})[s]||''
 const barClr = s => s>=70?'var(--red)':s>=45?'var(--yellow)':'var(--green)'
 const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Altcoin:'#ec4899',Other:'#6b7280'}
+const CLIENT_SECTOR_MAP = {
+  BTC:'L1',ETH:'L1',SOL:'L1',BNB:'L1',XRP:'L1',ADA:'L1',AVAX:'L1',SUI:'L1',APT:'L1',SEI:'L1',TON:'L1',TRX:'L1',DOT:'L1',ATOM:'L1',NEAR:'L1',ICP:'L1',ALGO:'L1',HBAR:'L1',FIL:'L1',
+  ARB:'L2',OP:'L2',MATIC:'L2',POL:'L2',STRK:'L2',ZK:'L2',MANTA:'L2',METIS:'L2',IMX:'Gaming',
+  UNI:'DeFi',AAVE:'DeFi',MKR:'DeFi',COMP:'DeFi',SNX:'DeFi',CRV:'DeFi',LDO:'DeFi',PENDLE:'DeFi',DYDX:'DeFi',GMX:'DeFi',RUNE:'DeFi',INJ:'DeFi',
+  LINK:'Infra',TIA:'Infra',PYTH:'Infra',GRT:'Infra',RNDR:'Infra',RENDER:'Infra',FET:'Infra',AR:'Infra',AKT:'Infra',TAO:'Infra',WLD:'Infra',
+  USDT:'Stable',USDC:'Stable',DAI:'Stable',FDUSD:'Stable',TUSD:'Stable',
+  DOGE:'Altcoin',SHIB:'Altcoin',PEPE:'Altcoin',BONK:'Altcoin',FLOKI:'Altcoin'
+}
+const classifyClientSector = symbol => CLIENT_SECTOR_MAP[String(symbol||'').toUpperCase()] || 'Other'
 const buildSectorSummary = tokens => tokens.reduce((acc,t)=>{
   const sector = t.sector || 'Other'
   if(!acc[sector]) acc[sector] = {count:0,avg_change_24h:0,total_market_cap:0}
@@ -370,6 +392,76 @@ const buildSectorSummary = tokens => tokens.reduce((acc,t)=>{
   return acc
 },{})
 const finalizeSectorSummary = sectors => Object.fromEntries(Object.entries(sectors).map(([k,v])=>[k,{...v,avg_change_24h:Number((v.avg_change_24h/Math.max(v.count,1)).toFixed(2))}]))
+const normalizeCoinPaprikaTicker = t => {
+  const symbol = String(t?.symbol || '').toUpperCase()
+  const usd = t?.quotes?.USD || {}
+  const marketCap = num(usd.market_cap)
+  const volume = num(usd.volume_24h)
+  return {
+    id:t?.id,
+    rank:num(t?.rank,999999),
+    symbol,
+    name:t?.name || symbol,
+    price:num(usd.price),
+    change_1h:Number(num(usd.percent_change_1h).toFixed(2)),
+    change_24h:Number(num(usd.percent_change_24h).toFixed(2)),
+    change_7d:Number(num(usd.percent_change_7d).toFixed(2)),
+    change_30d:Number(num(usd.percent_change_30d).toFixed(2)),
+    market_cap:marketCap,
+    volume_24h:volume,
+    volume_to_mcap:marketCap ? Number(((volume/marketCap)*100).toFixed(2)) : 0,
+    sector:classifyClientSector(symbol),
+    sparkline_7d:[],
+    data_source:'coinpaprika_browser_api',
+    data_quality:'live',
+  }
+}
+const hydrateMarketPayload = (base, tokens, source='coinpaprika') => {
+  const clean = tokens.filter(t=>t?.symbol&&t?.price&&t?.market_cap).sort((a,b)=>num(a.rank)-num(b.rank))
+  const totalMarketCap = clean.reduce((s,t)=>s+num(t.market_cap),0)
+  const totalVolume = clean.reduce((s,t)=>s+num(t.volume_24h),0)
+  const btcMarketCap = clean.find(t=>t.symbol==='BTC')?.market_cap || 0
+  const ethMarketCap = clean.find(t=>t.symbol==='ETH')?.market_cap || 0
+  const weightedChange = totalMarketCap ? clean.reduce((s,t)=>s+(num(t.change_24h)*num(t.market_cap)),0)/totalMarketCap : 0
+  return {
+    ...(base||{}),
+    global: (base?.global?.total_market_cap || 0) > 0 ? base.global : {
+      total_market_cap: totalMarketCap,
+      total_volume_24h: totalVolume,
+      btc_dominance: totalMarketCap ? Number(((btcMarketCap/totalMarketCap)*100).toFixed(2)) : 0,
+      eth_dominance: totalMarketCap ? Number(((ethMarketCap/totalMarketCap)*100).toFixed(2)) : 0,
+      active_cryptocurrencies: clean.length,
+      market_cap_change_24h: Number(weightedChange.toFixed(2)),
+      data_source: source,
+    },
+    fear_greed: base?.fear_greed?.value ? base.fear_greed : {value:27,classification:'Fear',source:'fallback_snapshot'},
+    tvl: base?.tvl?.total ? base.tvl : {total:84200000000,change_7d:1.2},
+    tokens_count: clean.length,
+    top_tokens: clean,
+    all_tokens: clean,
+    sectors: finalizeSectorSummary(buildSectorSummary(clean)),
+    top_gainers: [...clean].sort((a,b)=>num(b.change_24h)-num(a.change_24h)).slice(0,5),
+    top_losers: [...clean].sort((a,b)=>num(a.change_24h)-num(b.change_24h)).slice(0,5),
+    data_quality: {
+      ...(base?.data_quality||{}),
+      market_data_source: source,
+      market_data_quality: clean[0]?.data_quality || 'live',
+      primary_price_provider: 'CoinPaprika',
+    }
+  }
+}
+const fetchCoinPaprikaUniverse = async (limit=300) => {
+  const viaBackend = await fetchJson(`/api/market/coinpaprika?limit=${limit}`, null, 14000)
+  if(viaBackend?.tokens?.length) return viaBackend.tokens
+
+  const rows = await fetchExternalJson('https://api.coinpaprika.com/v1/tickers?quotes=USD', [], 14000)
+  if(!Array.isArray(rows)) return []
+  return rows
+    .filter(r=>r?.quotes?.USD?.market_cap)
+    .map(normalizeCoinPaprikaTicker)
+    .sort((a,b)=>num(a.rank)-num(b.rank))
+    .slice(0,limit)
+}
 const KITE_LINKS = {
   docs:'https://docs.gokite.ai/',
   network:'https://docs.gokite.ai/kite-chain/1-getting-started/network-information',
@@ -938,11 +1030,19 @@ function App() {
         fetchJson('/api/wallet/yield',null),
         fetchJson('/api/events/stream?min_severity=0',null,8000),
       ])
+      let marketPayload = m
+      if(!marketPayload?.top_tokens?.length || marketPayload.top_tokens.length < 100) {
+        const liveTokens = await fetchCoinPaprikaUniverse(300)
+        if(liveTokens.length >= 100) {
+          marketPayload = hydrateMarketPayload(marketPayload, liveTokens, liveTokens[0]?.data_source || 'coinpaprika')
+        }
+      }
+
       setUnlocks((u.unlocks&&u.unlocks.length)?u.unlocks:DEMO_UNLOCKS)
       setPortfolio(p||DEMO_PORTFOLIO)
       setAgent(s)
       setHedges(h.hedges||[])
-      setMarket(m)
+      setMarket(marketPayload)
       setBacktest(bt)
       setWalletData(w)
       setYieldData(y)
@@ -1341,7 +1441,7 @@ function App() {
           <div className="sec">
             <div className="sh">
               <h2><Globe size={16} color="var(--cyan)"/> Market Data <span className="cnt">{filteredTokens.length}</span></h2>
-              <div style={{fontSize:10,color:'var(--text3)'}}>Source: CoinPaprika API • Page {marketPage}/{totalPages||1}</div>
+              <div style={{fontSize:10,color:'var(--text3)'}}>Source: {market?.data_quality?.market_data_source || 'CoinPaprika API'} • Page {marketPage}/{totalPages||1}</div>
             </div>
             <div className="tw">
               <table><thead><tr><th>#</th><th>Token</th><th>Price</th><th>24h</th><th>7d</th><th>7d Chart</th><th>Market Cap</th><th>Volume</th><th>Sector</th></tr></thead><tbody>
