@@ -227,16 +227,11 @@ class PredictionOracle:
                 prediction.unlock_date.replace('Z', '+00:00')
             ).timestamp())
 
-            attestation = await kite_service.attest_prediction(
+            attestation = await kite_service.commit_prediction_hash(
+                commit_hash=prediction.commit_hash,
                 token_symbol=prediction.token_symbol,
-                unlock_amount_usd=0,  # Will be enriched from market data
                 unlock_timestamp=unlock_ts,
                 risk_score=min(100, max(1, int(abs(prediction.cvar_95)))),
-                reasoning=f"Commit: {prediction.commit_hash[:20]}... | "
-                          f"Predicted: {prediction.predicted_impact_pct}% | "
-                          f"VaR95: {prediction.var_95}% | "
-                          f"Regime: {prediction.regime}",
-                predicted_impact=prediction.predicted_impact_pct,
             )
 
             prediction.tx_hash = attestation.tx_hash

@@ -13,88 +13,35 @@ from app.models.schemas import RiskAnalysis, AttestationRecord
 CONTRACT_ABI = json.loads("""[
     {
         "inputs": [
+            {"internalType": "bytes32", "name": "_commitHash", "type": "bytes32"},
             {"internalType": "string", "name": "_tokenSymbol", "type": "string"},
-            {"internalType": "uint256", "name": "_unlockAmount", "type": "uint256"},
             {"internalType": "uint256", "name": "_unlockTimestamp", "type": "uint256"},
-            {"internalType": "uint8", "name": "_riskScore", "type": "uint8"},
-            {"internalType": "string", "name": "_reasoning", "type": "string"},
-            {"internalType": "int16", "name": "_predictedPriceImpact", "type": "int16"}
+            {"internalType": "uint8", "name": "_riskScore", "type": "uint8"}
         ],
-        "name": "createPrediction",
+        "name": "commitPrediction",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "_predictionId", "type": "uint256"},
-            {"internalType": "string", "name": "_actionType", "type": "string"},
-            {"internalType": "string", "name": "_details", "type": "string"},
-            {"internalType": "bool", "name": "_simulated", "type": "bool"}
-        ],
-        "name": "recordHedgeAction",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "nonpayable",
-        "type": "function"
-    },
-    {
-        "inputs": [
-            {"internalType": "uint256", "name": "_predictionId", "type": "uint256"},
-            {"internalType": "int16", "name": "_actualPriceImpact", "type": "int16"},
-            {"internalType": "uint256", "name": "_valueProtected", "type": "uint256"}
-        ],
-        "name": "recordOutcome",
-        "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
     },
     {
         "inputs": [],
-        "name": "predictionCount",
+        "name": "commitCount",
         "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
         "stateMutability": "view",
         "type": "function"
     },
     {
-        "inputs": [{"internalType": "uint256", "name": "_id", "type": "uint256"}],
-        "name": "getPrediction",
+        "inputs": [],
+        "name": "reputation",
         "outputs": [
-            {
-                "components": [
-                    {"internalType": "uint256", "name": "id", "type": "uint256"},
-                    {"internalType": "string", "name": "tokenSymbol", "type": "string"},
-                    {"internalType": "uint256", "name": "unlockAmount", "type": "uint256"},
-                    {"internalType": "uint256", "name": "unlockTimestamp", "type": "uint256"},
-                    {"internalType": "uint8", "name": "riskScore", "type": "uint8"},
-                    {"internalType": "string", "name": "reasoning", "type": "string"},
-                    {"internalType": "int16", "name": "predictedPriceImpact", "type": "int16"},
-                    {"internalType": "int16", "name": "actualPriceImpact", "type": "int16"},
-                    {"internalType": "uint256", "name": "createdAt", "type": "uint256"},
-                    {"internalType": "bool", "name": "outcomeRecorded", "type": "bool"}
-                ],
-                "internalType": "struct UnlockShieldAttestation.Prediction",
-                "name": "",
-                "type": "tuple"
-            }
-        ],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "getReputationScore",
-        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-        "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "agentStats",
-        "outputs": [
-            {"internalType": "uint256", "name": "totalPredictions", "type": "uint256"},
+            {"internalType": "uint256", "name": "totalCommits", "type": "uint256"},
+            {"internalType": "uint256", "name": "totalReveals", "type": "uint256"},
             {"internalType": "uint256", "name": "accuratePredictions", "type": "uint256"},
-            {"internalType": "uint256", "name": "totalHedges", "type": "uint256"},
-            {"internalType": "uint256", "name": "totalValueProtected", "type": "uint256"},
+            {"internalType": "uint256", "name": "closePredictions", "type": "uint256"},
+            {"internalType": "uint256", "name": "totalErrorBps", "type": "uint256"},
+            {"internalType": "uint256", "name": "currentStreak", "type": "uint256"},
+            {"internalType": "uint256", "name": "bestStreak", "type": "uint256"},
+            {"internalType": "uint256", "name": "score", "type": "uint256"},
             {"internalType": "uint256", "name": "lastUpdated", "type": "uint256"}
         ],
         "stateMutability": "view",
@@ -154,18 +101,23 @@ class KiteAttestationService:
         try:
             # Convert predicted impact to basis points (int16)
             impact_bps = int(predicted_impact * 100)
+            commit_hash = Web3.keccak(text=json.dumps({
+                "token": token_symbol,
+                "impact_bps": impact_bps,
+                "unlock_timestamp": unlock_timestamp,
+                "risk_score": risk_score,
+                "reasoning": reasoning[:160],
+            }, sort_keys=True))
 
-            tx = self.contract.functions.createPrediction(
+            tx = self.contract.functions.commitPrediction(
+                commit_hash,
                 token_symbol,
-                int(unlock_amount_usd),
                 unlock_timestamp,
                 risk_score,
-                reasoning[:500],  # Limit string length for gas
-                impact_bps
             ).build_transaction({
                 'from': self.account.address,
                 'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 500000,
+                'gas': 300000,
                 'gasPrice': self.w3.eth.gas_price,
                 'chainId': int(os.getenv("KITE_CHAIN_ID", "2368"))
             })
@@ -174,7 +126,7 @@ class KiteAttestationService:
             tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
 
-            prediction_count = self.contract.functions.predictionCount().call()
+            prediction_count = self.contract.functions.commitCount().call()
 
             return AttestationRecord(
                 prediction_id=prediction_count,
@@ -185,6 +137,48 @@ class KiteAttestationService:
 
         except Exception as e:
             print(f"Attestation error: {e}")
+            return self._mock_attestation()
+
+    async def commit_prediction_hash(
+        self,
+        commit_hash: str,
+        token_symbol: str,
+        unlock_timestamp: int,
+        risk_score: int,
+    ) -> AttestationRecord:
+        """Commit an existing keccak256 prediction hash to the deployed Kite oracle."""
+        if not self.is_connected():
+            return self._mock_attestation()
+
+        try:
+            commit_hash_bytes = Web3.to_bytes(hexstr=commit_hash)
+            tx = self.contract.functions.commitPrediction(
+                commit_hash_bytes,
+                token_symbol,
+                unlock_timestamp,
+                min(100, max(1, int(risk_score))),
+            ).build_transaction({
+                'from': self.account.address,
+                'nonce': self.w3.eth.get_transaction_count(self.account.address),
+                'gas': 300000,
+                'gasPrice': self.w3.eth.gas_price,
+                'chainId': int(os.getenv("KITE_CHAIN_ID", "2368"))
+            })
+
+            signed = self.account.sign_transaction(tx)
+            tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            commit_count = self.contract.functions.commitCount().call()
+
+            return AttestationRecord(
+                prediction_id=commit_count,
+                tx_hash=receipt.transactionHash.hex(),
+                block_number=receipt.blockNumber,
+                explorer_url=f"{EXPLORER_BASE}{receipt.transactionHash.hex()}"
+            )
+
+        except Exception as e:
+            print(f"Commit hash error: {e}")
             return self._mock_attestation()
 
     async def attest_hedge(
@@ -198,28 +192,7 @@ class KiteAttestationService:
         if not self.is_connected():
             return "0x_mock_hedge_tx"
 
-        try:
-            tx = self.contract.functions.recordHedgeAction(
-                prediction_id,
-                action_type,
-                details[:500],
-                simulated
-            ).build_transaction({
-                'from': self.account.address,
-                'nonce': self.w3.eth.get_transaction_count(self.account.address),
-                'gas': 300000,
-                'gasPrice': self.w3.eth.gas_price,
-                'chainId': int(os.getenv("KITE_CHAIN_ID", "2368"))
-            })
-
-            signed = self.account.sign_transaction(tx)
-            tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
-            return receipt.transactionHash.hex()
-
-        except Exception as e:
-            print(f"Hedge attestation error: {e}")
-            return "0x_error"
+        return "0x_hedge_action_recorded_offchain_oracle_commit_only"
 
     async def get_reputation(self) -> dict:
         """Fetch agent reputation from on-chain data"""
@@ -227,15 +200,16 @@ class KiteAttestationService:
             return {"total_predictions": 0, "accuracy": 0, "reputation_score": 0}
 
         try:
-            stats = self.contract.functions.agentStats().call()
-            rep_score = self.contract.functions.getReputationScore().call()
+            rep = self.contract.functions.reputation().call()
 
             return {
-                "total_predictions": stats[0],
-                "accurate_predictions": stats[1],
-                "total_hedges": stats[2],
-                "total_value_protected": stats[3],
-                "reputation_score": rep_score
+                "total_predictions": rep[0],
+                "total_reveals": rep[1],
+                "accurate_predictions": rep[2],
+                "close_predictions": rep[3],
+                "current_streak": rep[5],
+                "best_streak": rep[6],
+                "reputation_score": rep[7],
             }
         except Exception as e:
             print(f"Reputation fetch error: {e}")
