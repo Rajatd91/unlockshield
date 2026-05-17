@@ -36,6 +36,10 @@ MID_CAP_TICKERS = ["ARB", "OP", "APT", "TIA", "SUI", "SEI", "IMX", "DYDX",
                    "STRK", "INJ", "NEAR", "ATOM", "LDO", "GMX", "PENDLE",
                    "MANTA", "JUP", "PYTH", "TAO", "FET"]
 
+# Memecoin/small-cap watchlist (always scanned, even without event triggers)
+# User-requested: TROLL plus other liquid memes that often move sharply.
+SMALL_CAP_WATCHLIST = ["TROLL", "PNUT", "GOAT", "MOG", "POPCAT", "BRETT", "WIF", "BONK"]
+
 
 @dataclass
 class TierConfig:
@@ -155,8 +159,20 @@ def build_candidates(
             note=f"{u.total_supply_percent or 0}% supply unlock in {days}d · {category or 'investor'}",
         )
 
-    # ─── Tier 3: small-cap idiosyncratic (from event signals) ───────────
-    # Pull tokens flagged by volume anomalies or whale movements.
+    # ─── Tier 3: small-cap idiosyncratic ────────────────────────────────
+    # 3a) Hard-coded memecoin watchlist (always scanned, including TROLL)
+    for sym in SMALL_CAP_WATCHLIST:
+        if sym in candidates:
+            continue
+        candidates[sym] = Candidate(
+            token=sym, tier="small",
+            source="memecoin_watchlist",
+            pct_supply=0.0, days_until=30,
+            recipient="ecosystem", is_cliff=False,
+            note=f"Memecoin watchlist · idiosyncratic vol monitoring",
+        )
+
+    # 3b) Tokens flagged by DEX volume anomalies
     anomalies = (market_overview or {}).get("volume_anomalies") or []
     for a in anomalies[:8]:
         sym = a.get("symbol")

@@ -2364,7 +2364,7 @@ function App() {
                   <div>
                     <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}>Autonomous Agent · Kite AI Testnet</div>
                     <div style={{fontSize:20,fontWeight:900,color:loop?.running?'var(--green)':'var(--text)'}}>{loop?.running?'RUNNING':loop?.enabled?'starting…':'OFFLINE'}</div>
-                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}}>Cycles: <strong>{loop?.cycles_completed||0}</strong> · Last: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong></div>
+                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}} title="Cycles since this Render instance booted. The on-chain treasury state (trades, balance) persists across deploys.">Cycles since boot: <strong>{loop?.cycles_completed||0}</strong> · Last: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong></div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -2381,7 +2381,7 @@ function App() {
               <div className="sh"><h2><Database size={16} color="var(--cyan)"/> Agent Treasury · on-chain capital execution</h2><span style={{fontSize:11,color:'var(--text3)'}}>Reads live from AgentTreasury contract</span></div>
               <div className="btg">
                 <div className="bts"><div className="bv" style={{color:'var(--green)'}}>{fmtUsd(passport.balance_usd)}</div><div className="bl">USDC Balance</div></div>
-                <div className="bts"><div className="bv" style={{color:'var(--purple)'}}>{passport.trades}</div><div className="bl">Trades Executed</div></div>
+                <div className="bts" title="Total executeHedge() calls since the AgentTreasury contract was deployed. Persists across backend restarts."><div className="bv" style={{color:'var(--purple)'}}>{passport.trades}</div><div className="bl">Trades (all-time)</div></div>
                 <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{fmtUsd(passport.deployed_usd)}</div><div className="bl">USDC Deployed</div></div>
                 <div className="bts"><div className="bv" style={{color:'var(--yellow)'}}>{passport.blocked}</div><div className="bl">Hedges Blocked</div></div>
               </div>
@@ -2398,9 +2398,11 @@ function App() {
               {/* Hedge history */}
               {hedges.length>0?(
                 <div className="tw" style={{marginTop:14}}>
-                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Tx</th></tr></thead><tbody>
+                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Prediction Ref</th></tr></thead><tbody>
                     {hedges.map((h,i)=>{
-                      const url = kiteScanUrl(h.prediction_ref) // commit hash
+                      // h.prediction_ref is the keccak commit hash from oracle,
+                      // not the executeHedge tx hash. Link it to the oracle contract.
+                      const refUrl = kiteScanUrl(h.prediction_ref)
                       return (
                         <tr key={h.id}>
                           <td style={{fontSize:11,color:'var(--text3)'}}>{h.id}</td>
@@ -2409,11 +2411,17 @@ function App() {
                           <td><span className={`rsk ${riskCls(h.risk_score)}`}>{h.risk_score}</span></td>
                           <td style={{fontWeight:700,color:'var(--green)'}}>{fmtUsd(h.amount_usd)}</td>
                           <td style={{fontSize:11,color:'var(--text3)'}}>{new Date(h.timestamp*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-                          <td>{url?<a href={url} target="_blank" rel="noopener" style={{color:'var(--green)',fontSize:11}}><ExternalLink size={12}/></a>:<span style={{fontSize:10,color:'var(--text3)'}}>—</span>}</td>
+                          <td><span style={{fontSize:10,color:'var(--text3)',fontFamily:'monospace'}}>{h.prediction_ref ? `${h.prediction_ref.slice(0,10)}…` : '—'}</span></td>
                         </tr>
                       )
                     })}
                   </tbody></table>
+                  <div style={{padding:'12px 6px',fontSize:11,color:'var(--text3)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                    <span>{hedges.length} hedge events stored on-chain in <code style={{background:'var(--bg3)',padding:'2px 6px',borderRadius:4}}>AgentTreasury</code></span>
+                    <a href={treasuryData?.passport?.treasury_explorer} target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>
+                      View all txs on KiteScan ↗
+                    </a>
+                  </div>
                 </div>
               ):(
                 <div style={{marginTop:14,padding:14,textAlign:'center',fontSize:12,color:'var(--text3)'}}>No hedges executed yet — agent only acts when risk score ≥ {passport.policy?.min_risk_score||35} and policy gates pass.</div>
