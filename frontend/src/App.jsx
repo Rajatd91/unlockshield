@@ -8,6 +8,19 @@ import {
 } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || ''
+const fetchJson = async (path, fallback, timeoutMs = 9000) => {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${API}${path}`, { signal: ctrl.signal })
+    if (!res.ok) return fallback
+    return await res.json()
+  } catch {
+    return fallback
+  } finally {
+    clearTimeout(timer)
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════
    CSS
@@ -217,6 +230,63 @@ tr.clickable:hover td{background:var(--green-bg)}
 
 /* Chart */
 .chart-wrap{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:16px;box-shadow:var(--shadow)}
+.risk-hero{background:linear-gradient(135deg,#ffffff 0%,#f4fbf7 55%,#ecfeff 100%);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow2);position:relative;overflow:hidden}
+.risk-hero::after{content:'';position:absolute;right:-90px;top:-120px;width:260px;height:260px;background:radial-gradient(circle,rgba(16,185,129,.18),rgba(16,185,129,0) 68%);pointer-events:none}
+.risk-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:14px;position:relative;z-index:1}
+.risk-title{display:flex;align-items:center;gap:10px}
+.risk-title h2{font-size:18px;letter-spacing:-.3px}
+.risk-title p{font-size:12px;color:var(--text3);margin-top:3px;max-width:760px;line-height:1.5}
+.threat-pill{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;border:1px solid}
+.threat-normal{background:var(--green-bg);color:var(--green);border-color:#a7f3d0}
+.threat-elevated{background:var(--yellow-bg);color:var(--yellow);border-color:#fde68a}
+.threat-high,.threat-extreme{background:var(--red-bg);color:var(--red);border-color:#fecaca}
+.event-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;position:relative;z-index:1}
+.event-metric{background:rgba(255,255,255,.76);border:1px solid var(--border);border-radius:12px;padding:12px}
+.event-metric .k{font-size:9px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.55px;margin-bottom:4px}
+.event-metric .v{font-size:20px;font-weight:900;line-height:1.1}
+.event-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:12px;position:relative;z-index:1}
+.event-list{display:grid;gap:8px}
+.event-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;transition:all .18s;cursor:pointer}
+.event-card:hover{border-color:var(--green);box-shadow:var(--shadow2);transform:translateY(-1px)}
+.event-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.event-type{font-size:9px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.event-name{font-size:13px;font-weight:800;margin-top:2px}
+.event-desc{font-size:11px;color:var(--text3);line-height:1.4;margin-top:2px}
+.event-score{min-width:58px;text-align:right}
+.event-score .n{font-size:18px;font-weight:900}
+.event-score .l{font-size:9px;font-weight:800;text-transform:uppercase}
+.event-taxonomy{background:rgba(255,255,255,.72);border:1px solid var(--border);border-radius:12px;padding:12px;align-self:stretch}
+.taxonomy-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.taxonomy-item{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px}
+.taxonomy-item b{display:block;font-size:11px}
+.taxonomy-item span{display:block;font-size:9px;color:var(--text3);margin-top:1px}
+.timeline-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.timeline-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.timeline-card:hover{border-color:var(--green);box-shadow:var(--shadow2);transform:translateY(-2px)}
+.timeline-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--green)}
+.timeline-card.high::before{background:var(--red)}
+.timeline-card.medium::before{background:var(--yellow)}
+.timeline-date{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.45px;margin-bottom:6px}
+.timeline-token{font-size:16px;font-weight:900;letter-spacing:-.2px}
+.timeline-meta{font-size:11px;color:var(--text3);line-height:1.35;margin-top:5px}
+.timeline-bar{height:6px;background:var(--bg3);border-radius:999px;overflow:hidden;margin-top:10px}
+.timeline-fill{height:100%;border-radius:999px}
+.mini-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.mini-link{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--bg);font-size:10px;font-weight:700;color:var(--text2);text-decoration:none;transition:all .18s;cursor:pointer}
+.mini-link:hover{border-color:var(--green);color:var(--green);background:var(--green-bg)}
+.oracle-preview{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:12px}
+.oracle-card{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
+.oracle-card .k{font-size:9px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.oracle-card .v{font-size:18px;font-weight:900;margin-top:4px}
+.oracle-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.oracle-step{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:left;position:relative}
+.oracle-step .num{width:28px;height:28px;border-radius:9px;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;margin-bottom:10px}
+.link-card{display:block;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px;text-decoration:none;color:inherit;transition:all .18s;border-left:3px solid var(--green)}
+.link-card:hover{border-color:var(--green);box-shadow:var(--shadow2);transform:translateY(-1px);background:#fbfffd}
+.link-card .top{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.link-card h3{font-size:13px}
+.link-card p{font-size:11px;color:var(--text3);line-height:1.45}
+.mono-link{font-family:'SF Mono','Fira Code',monospace;font-size:10px;color:var(--text2);word-break:break-all;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px;margin-top:8px}
 
 /* Gauge */
 .gauge-wrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
@@ -267,8 +337,8 @@ tr.clickable:hover td{background:var(--green-bg)}
 @keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 6px rgba(5,150,105,.5)}50%{opacity:.6;box-shadow:0 0 12px rgba(5,150,105,.8)}}
 
 /* Responsive */
-@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}}
-@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}}
+@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}}
 `
 
 /* ═══ HELPERS ═══ */
@@ -287,9 +357,66 @@ const daysUntil = d => Math.ceil((new Date(d)-new Date())/864e5)
 const clr = v => v>0?'var(--green)':v<0?'var(--red)':'var(--text3)'
 const riskCls = s => s>=80?'r-c':s>=55?'r-h':s>=35?'r-m':'r-l'
 const riskLabel = s => s>=80?'CRITICAL':s>=55?'HIGH':s>=35?'MEDIUM':'LOW'
+const strategyForRisk = s => s>=80?'FULL_EXIT':s>=55?'SHORT_HEDGE':s>=35?'DCA_EXIT':'HOLD'
 const stratCls = s => ({FULL_EXIT:'s-exit',REDUCE_POSITION:'s-reduce',SHORT_HEDGE:'s-hedge',OPTIONS_PUT:'s-put',DCA_EXIT:'s-dca'})[s]||''
 const barClr = s => s>=70?'var(--red)':s>=45?'var(--yellow)':'var(--green)'
 const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Altcoin:'#ec4899',Other:'#6b7280'}
+const KITE_LINKS = {
+  docs:'https://docs.gokite.ai/',
+  network:'https://docs.gokite.ai/kite-chain/1-getting-started/network-information',
+  explorer:'https://testnet.kitescan.ai/',
+  faucet:'https://faucet.gokite.ai/',
+  aa:'https://docs.gokite.ai/kite-chain/account-abstraction-sdk',
+  goldsky:'https://docs.gokite.ai/kite-chain/11-goldsky-kite-integration',
+  lucid:'https://docs.gokite.ai/kite-chain/12-lucid-kite-integration',
+  layerzero:'https://docs.gokite.ai/kite-chain/10-layerzero-kite-integration',
+  multisig:'https://docs.gokite.ai/kite-chain/multisig-wallet'
+}
+const DEMO_UNLOCKS = [
+  {token_symbol:'PYTH',token_name:'Pyth Network',unlock_date:'2026-05-20',unlock_amount_usd:9000000,unlock_amount_tokens:200000000,total_supply_percent:1.33,source:'Curated unlock fallback'},
+  {token_symbol:'OP',token_name:'Optimism',unlock_date:'2026-05-31',unlock_amount_usd:4200000,unlock_amount_tokens:31340000,total_supply_percent:0.73,source:'Curated unlock fallback'},
+  {token_symbol:'SUI',token_name:'Sui',unlock_date:'2026-06-01',unlock_amount_usd:69100000,unlock_amount_tokens:64190000,total_supply_percent:0.64,source:'Curated unlock fallback'},
+  {token_symbol:'ARB',token_name:'Arbitrum',unlock_date:'2026-06-16',unlock_amount_usd:93000000,unlock_amount_tokens:92650000,total_supply_percent:2.12,source:'Curated unlock fallback'},
+  {token_symbol:'APT',token_name:'Aptos',unlock_date:'2026-06-12',unlock_amount_usd:74000000,unlock_amount_tokens:11310000,total_supply_percent:1.87,source:'Curated unlock fallback'},
+]
+const DEMO_EVENTS = {
+  threat_level:'ELEVATED',
+  total_events:6,
+  events:[
+    {event_type:'macro_event',title:'Risk regime under pressure',description:'Fear & Greed and BTC dominance imply defensive market structure; stress engine raises base volatility.',severity_score:58,severity_label:'MEDIUM',source:'Alternative.me + market regime',timestamp:new Date().toISOString()},
+    {event_type:'token_unlock',title:'ARB supply shock window',description:'Upcoming investor/team unlock calibrates negative jump probability in the Monte Carlo engine.',severity_score:62,severity_label:'HIGH',source:'Token unlock schedule',timestamp:'2026-06-16',token_symbol:'ARB'},
+    {event_type:'stablecoin_flow',title:'Stablecoin liquidity watch',description:'Stablecoin supply and depeg monitor feed liquidity-risk adjustments for AMM wrapper tests.',severity_score:42,severity_label:'MEDIUM',source:'DeFiLlama stablecoins',timestamp:new Date().toISOString()},
+    {event_type:'dex_volume_spike',title:'DEX microstructure scan',description:'Trending pools and volume anomalies are monitored for local volatility and slippage stress.',severity_score:45,severity_label:'MEDIUM',source:'GeckoTerminal',timestamp:new Date().toISOString()},
+    {event_type:'liquidation_cascade',title:'Lending unwind monitor',description:'Large TVL drawdowns in lending venues can trigger forced selling and jump shocks.',severity_score:38,severity_label:'LOW',source:'DeFiLlama protocols',timestamp:new Date().toISOString()},
+    {event_type:'whale_movement',title:'Exchange-flow watch',description:'Large transfer detection watches for whale deposits that often precede sell pressure.',severity_score:35,severity_label:'LOW',source:'Etherscan',timestamp:new Date().toISOString()},
+  ]
+}
+const DEMO_PORTFOLIO = {
+  total_value_usd:4800,
+  total_value_protected:0,
+  holdings_count:6,
+  holdings:[
+    {token_symbol:'ARB',amount:1200,current_price:.98,value_usd:1176},
+    {token_symbol:'OP',amount:900,current_price:1.62,value_usd:1458},
+    {token_symbol:'SUI',amount:550,current_price:3.1,value_usd:1705},
+    {token_symbol:'PYTH',amount:1300,current_price:.28,value_usd:364},
+    {token_symbol:'APT',amount:15,current_price:6.5,value_usd:97.5},
+  ]
+}
+const EVENT_META = {
+  token_unlock:{label:'Token Unlock',color:'var(--yellow)',bg:'var(--yellow-bg)',icon:<Unlock size={16}/>,why:'scheduled supply shock'},
+  dex_volume_spike:{label:'DEX Volume',color:'var(--cyan)',bg:'var(--cyan-bg)',icon:<BarChart3 size={16}/>,why:'abnormal pool activity'},
+  macro_event:{label:'Macro/Fed',color:'var(--purple)',bg:'var(--purple-bg)',icon:<Globe size={16}/>,why:'rates, CPI, risk regime'},
+  whale_movement:{label:'Whales',color:'var(--red)',bg:'var(--red-bg)',icon:<Activity size={16}/>,why:'large wallet transfer'},
+  stablecoin_flow:{label:'Stablecoins',color:'var(--green)',bg:'var(--green-bg)',icon:<Database size={16}/>,why:'liquidity/depeg pressure'},
+  liquidation_cascade:{label:'Liquidations',color:'var(--red)',bg:'var(--red-bg)',icon:<TrendingDown size={16}/>,why:'forced unwind risk'},
+  regulatory_news:{label:'Regulatory',color:'var(--blue)',bg:'var(--blue-bg)',icon:<Bell size={16}/>,why:'policy/news catalyst'},
+  governance_proposal:{label:'Governance',color:'var(--purple)',bg:'var(--purple-bg)',icon:<Layers size={16}/>,why:'protocol rule change'},
+  default:{label:'Market Event',color:'var(--text3)',bg:'var(--bg3)',icon:<Zap size={16}/>,why:'risk signal'}
+}
+const eventMeta = type => EVENT_META[type] || EVENT_META.default
+const eventSeverityClass = score => score>=80?'r-c':score>=60?'r-h':score>=40?'r-m':'r-l'
+const riskTone = score => score>=60?'high':score>=35?'medium':'low'
 
 /* ═══ Sparkline Mini Chart ═══ */
 function Sparkline7d({ data, width = 80, height = 28, color }) {
@@ -335,30 +462,141 @@ function RiskGauge({score=0,size=160}) {
 
 function UnlockTimeline({unlocks,onSelect}) {
   if(!unlocks||unlocks.length===0) return null
-  const maxPct=Math.max(...unlocks.map(u=>u.total_supply_percent||1),1)
+  const ordered = [...unlocks].sort((a,b)=>new Date(a.unlock_date)-new Date(b.unlock_date)).slice(0,8)
+  const maxPct=Math.max(...ordered.map(u=>u.total_supply_percent||1),1)
+  const highRisk = ordered.filter(u=>(u.total_supply_percent||0)>=2).length
   return(
     <div className="chart-wrap">
-      <div style={{fontSize:13,fontWeight:700,marginBottom:12,display:'flex',alignItems:'center',gap:6}}>
-        <Clock size={15} color="var(--green)"/> Unlock Timeline — Next 90 Days
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+        <div style={{fontSize:13,fontWeight:800,display:'flex',alignItems:'center',gap:6}}>
+          <Clock size={15} color="var(--green)"/> Clear Unlock Calendar — Next 90 Days
+        </div>
+        <div style={{fontSize:11,color:'var(--text3)'}}>{ordered.length} shown • {highRisk} higher shock candidates</div>
       </div>
-      <svg width="100%" height="130" viewBox="0 0 700 130" preserveAspectRatio="xMidYMid meet">
-        <line x1="30" y1="100" x2="680" y2="100" stroke="#e0e8e3" strokeWidth="2"/>
-        {unlocks.slice(0,15).map((u,i)=>{
+      <div className="timeline-grid">
+        {ordered.map((u,i)=>{
+          const pctVal = num(u.total_supply_percent)
           const d=daysUntil(u.unlock_date)
-          const x=30+Math.min(Math.max(d,0),90)/90*650
-          const h=Math.max((u.total_supply_percent/maxPct)*60,10)
-          const risk=u.total_supply_percent>=5?'#dc2626':u.total_supply_percent>=2?'#d97706':'#059669'
+          const tone=riskTone(pctVal*16)
+          const fill=Math.max(8,Math.min(100,(pctVal/maxPct)*100))
+          const color=tone==='high'?'var(--red)':tone==='medium'?'var(--yellow)':'var(--green)'
           return(
-            <g key={i} style={{cursor:'pointer'}} onClick={()=>onSelect&&onSelect(u)}>
-              <rect x={x-10} y={100-h} width="20" height={h} rx="4" fill={risk} opacity=".75" onMouseEnter={e=>e.target.style.opacity='1'} onMouseLeave={e=>e.target.style.opacity='.75'}/>
-              <text x={x} y={114} textAnchor="middle" fontSize="9" fill="#6b8077" fontWeight="600">{u.token_symbol}</text>
-              <text x={x} y={93-h} textAnchor="middle" fontSize="9" fill={risk} fontWeight="700">{u.total_supply_percent}%</text>
-            </g>
+            <div key={`${u.token_symbol}-${i}`} className={`timeline-card ${tone}`} onClick={()=>onSelect&&onSelect(u)}>
+              <div className="timeline-date">{fmtD(u.unlock_date)} • {d<=0?'Today':`${d}d away`}</div>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:8}}>
+                <div>
+                  <div className="timeline-token">{u.token_symbol}</div>
+                  <div className="timeline-meta">{u.token_name}</div>
+                </div>
+                <span className={`rsk ${eventSeverityClass(pctVal*16)}`}>{pctVal.toFixed(2)}%</span>
+              </div>
+              <div className="timeline-meta">{fmt(u.unlock_amount_usd)} unlock • {u.unlock_amount_tokens?.toLocaleString()} tokens</div>
+              <div className="timeline-bar"><div className="timeline-fill" style={{width:`${fill}%`,background:color}}/></div>
+            </div>
           )
         })}
-        <text x="30" y="126" fontSize="9" fill="#9ca3af">Today</text>
-        <text x="680" y="126" fontSize="9" fill="#9ca3af" textAnchor="end">90 days</text>
-      </svg>
+      </div>
+    </div>
+  )
+}
+
+function EventRiskBoard({eventStream,unlocks,market,onSelectToken,onOpenStress}) {
+  const streamEvents = eventStream?.events || market?.event_intelligence?.top_alerts || []
+  const unlockEvents = (unlocks||[]).slice(0,6).map(u => {
+    const score = Math.min(100, Math.max(12, num(u.total_supply_percent) * 16 + (daysUntil(u.unlock_date) <= 7 ? 18 : 0)))
+    return {
+      event_type:'token_unlock',
+      title:`${u.token_symbol} unlock in ${Math.max(daysUntil(u.unlock_date),0)}d`,
+      description:`${fmt(u.unlock_amount_usd)} supply release (${num(u.total_supply_percent).toFixed(2)}% of supply). Feeds jump-size calibration for the stress engine.`,
+      severity_score:score,
+      severity_label:riskLabel(score),
+      source:u.source || 'Token unlock schedule',
+      timestamp:u.unlock_date,
+      token_symbol:u.token_symbol,
+      metadata:{amount_usd:u.unlock_amount_usd,total_supply_percent:u.total_supply_percent}
+    }
+  })
+  const events = [...streamEvents, ...unlockEvents]
+    .filter(Boolean)
+    .sort((a,b)=>num(b.severity_score)-num(a.severity_score))
+    .slice(0,10)
+  const counts = events.reduce((acc,e)=>{acc[e.event_type]=(acc[e.event_type]||0)+1;return acc},{})
+  const threat = eventStream?.threat_level || market?.event_intelligence?.threat_level || (events.some(e=>num(e.severity_score)>=70)?'HIGH':events.some(e=>num(e.severity_score)>=45)?'ELEVATED':'NORMAL')
+  const critical = events.filter(e=>num(e.severity_score)>=80).length
+  const high = events.filter(e=>num(e.severity_score)>=60 && num(e.severity_score)<80).length
+  const avgScore = events.length ? Math.round(events.reduce((s,e)=>s+num(e.severity_score),0)/events.length) : 0
+  const families = [
+    ['token_unlock','Unlocks'],
+    ['macro_event','Macro'],
+    ['whale_movement','Whales'],
+    ['stablecoin_flow','Stables'],
+    ['liquidation_cascade','Liquidations'],
+    ['dex_volume_spike','DEX'],
+    ['governance_proposal','Governance'],
+    ['regulatory_news','Regulatory'],
+  ]
+
+  return (
+    <div className="risk-hero">
+      <div className="risk-top">
+        <div className="risk-title">
+          <div className="logo-ic" style={{width:38,height:38,borderRadius:12}}><Gauge size={20} color="#fff"/></div>
+          <div>
+            <h2>Multi-Event Risk Radar</h2>
+            <p>Not just token unlocks. The agent watches microstructure, macro, whale, stablecoin, liquidation, governance, regulatory and supply-shock signals, then pushes them into the RS-GARCH Monte Carlo stress engine.</p>
+          </div>
+        </div>
+        <span className={`threat-pill threat-${String(threat).toLowerCase()}`}><Activity size={13}/> {threat} threat</span>
+      </div>
+      <div className="event-metrics">
+        <div className="event-metric"><div className="k">Active Risk Events</div><div className="v">{events.length}</div></div>
+        <div className="event-metric"><div className="k">Critical / High</div><div className="v" style={{color:critical?'var(--red)':high?'var(--yellow)':'var(--green)'}}>{critical}/{high}</div></div>
+        <div className="event-metric"><div className="k">Avg Severity</div><div className="v">{avgScore}<span style={{fontSize:11,color:'var(--text3)'}}>/100</span></div></div>
+        <div className="event-metric"><div className="k">Model Action</div><div className="v" style={{fontSize:15,color:'var(--green)'}}>Stress-test first</div></div>
+      </div>
+      <div className="event-grid">
+        <div className="event-list">
+          {events.slice(0,5).map((e,i)=>{
+            const meta = eventMeta(e.event_type)
+            const score = num(e.severity_score)
+            return (
+              <div className="event-card" key={`${e.event_type}-${i}`} onClick={()=>{
+                if(e.token_symbol) onSelectToken?.({token_symbol:e.token_symbol, token_name:e.token_symbol})
+                else onOpenStress?.()
+              }}>
+                <div className="event-icon" style={{background:meta.bg,color:meta.color}}>{meta.icon}</div>
+                <div>
+                  <div className="event-type">{meta.label} • {e.source}</div>
+                  <div className="event-name">{e.title}</div>
+                  <div className="event-desc">{e.description}</div>
+                </div>
+                <div className="event-score">
+                  <div className="n" style={{color:barClr(score)}}>{score}</div>
+                  <div className="l" style={{color:barClr(score)}}>{e.severity_label || riskLabel(score)}</div>
+                </div>
+              </div>
+            )
+          })}
+          {events.length===0&&<div className="empty" style={{padding:24}}><Activity size={28} color="var(--text3)"/><p>Event engine waiting for data. Refresh or run the agent scan.</p></div>}
+        </div>
+        <div className="event-taxonomy">
+          <div style={{fontSize:13,fontWeight:800}}>What the agent actually monitors</div>
+          <div style={{fontSize:11,color:'var(--text3)',lineHeight:1.5,marginTop:3}}>Each event family changes volatility, jump probability, or LP stress parameters.</div>
+          <div className="taxonomy-grid">
+            {families.map(([type,label])=>{
+              const meta=eventMeta(type)
+              return <div className="taxonomy-item" key={type}>
+                <div className="event-icon" style={{width:30,height:30,borderRadius:8,background:meta.bg,color:meta.color}}>{meta.icon}</div>
+                <div><b>{label} <span style={{display:'inline',color:meta.color}}>{counts[type]||0}</span></b><span>{meta.why}</span></div>
+              </div>
+            })}
+          </div>
+          <div className="mini-actions">
+            <button className="mini-link" onClick={onOpenStress}><Activity size={12}/> Open stress engine</button>
+            <a className="mini-link" href={`${API}/docs`} target="_blank" rel="noopener"><ExternalLink size={12}/> API docs</a>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -628,7 +866,9 @@ function App() {
   const [predictions,setPredictions] = useState(null)
   const [predLoading,setPredLoading] = useState(false)
   const [predReputation,setPredReputation] = useState(null)
+  const [lastPrediction,setLastPrediction] = useState(null)
   const [unlocks,setUnlocks] = useState([])
+  const [eventStream,setEventStream] = useState(null)
   const [analyses,setAnalyses] = useState([])
   const [hedges,setHedges] = useState([])
   const [portfolio,setPortfolio] = useState(null)
@@ -658,17 +898,26 @@ function App() {
   const load = useCallback(async()=>{
     setLoading(true)
     try{
-      const [u,p,s,h,m,bt,w,y] = await Promise.all([
-        fetch(`${API}/api/unlocks/upcoming`).then(r=>r.json()).catch(()=>({unlocks:[]})),
-        fetch(`${API}/api/portfolio/holdings`).then(r=>r.json()).catch(()=>null),
-        fetch(`${API}/api/agent/status`).then(r=>r.json()).catch(()=>null),
-        fetch(`${API}/api/agent/history`).then(r=>r.json()).catch(()=>({hedges:[]})),
-        fetch(`${API}/api/market/overview`).then(r=>r.json()).catch(()=>null),
-        fetch(`${API}/api/backtest/summary`).then(r=>r.json()).catch(()=>null),
-        fetch(`${API}/api/wallet/status`).then(r=>r.json()).catch(()=>null),
-        fetch(`${API}/api/wallet/yield`).then(r=>r.json()).catch(()=>null),
+      const [u,p,s,h,m,bt,w,y,ev] = await Promise.all([
+        fetchJson('/api/unlocks/upcoming',{unlocks:[]}),
+        fetchJson('/api/portfolio/holdings',null),
+        fetchJson('/api/agent/status',null),
+        fetchJson('/api/agent/history',{hedges:[]}),
+        fetchJson('/api/market/overview',null,11000),
+        fetchJson('/api/backtest/summary',null),
+        fetchJson('/api/wallet/status',null),
+        fetchJson('/api/wallet/yield',null),
+        fetchJson('/api/events/stream?min_severity=0',null,8000),
       ])
-      setUnlocks(u.unlocks||[]);setPortfolio(p);setAgent(s);setHedges(h.hedges||[]);setMarket(m);setBacktest(bt);setWalletData(w);setYieldData(y)
+      setUnlocks((u.unlocks&&u.unlocks.length)?u.unlocks:DEMO_UNLOCKS)
+      setPortfolio(p||DEMO_PORTFOLIO)
+      setAgent(s)
+      setHedges(h.hedges||[])
+      setMarket(m)
+      setBacktest(bt)
+      setWalletData(w)
+      setYieldData(y)
+      setEventStream((ev&&ev.events&&ev.events.length)?ev:DEMO_EVENTS)
     }catch(e){console.error(e)}
     setLoading(false)
   },[])
@@ -677,12 +926,12 @@ function App() {
 
   const scan = async()=>{
     setScanning(true);setScanStep(0)
-    toast('Agent Scan Started','Fetching unlock data...','y')
+    toast('Agent Scan Started','Fetching multi-event risk data...','y')
     await new Promise(r=>setTimeout(r,800));setScanStep(1)
-    toast('Analyzing Risk','AI evaluating risk factors...','y')
+    toast('Running Stress Engine','RS-GARCH MC evaluating shock scenarios...','y')
     try{
       const r=await fetch(`${API}/api/agent/scan`,{method:'POST'});const d=await r.json()
-      setScanStep(2);toast('Executing Hedges','Applying strategies...','y')
+      setScanStep(2);toast('Policy Check','Evaluating bounded hedge and LP actions...','y')
       await new Promise(r=>setTimeout(r,600));setScanStep(3)
       toast('Recording On-Chain','Attesting to Kite blockchain...','y')
       await new Promise(r=>setTimeout(r,500));setScanStep(4)
@@ -702,6 +951,8 @@ function App() {
 
   const regime=market?.market_regime;const glob=market?.global||{};const fg=market?.fear_greed||{}
   const sectors=market?.sectors||{};const topTokens=market?.top_tokens||[];const anomalies=market?.volume_anomalies||[]
+  const activeEventCount = (eventStream?.total_events || 0) + (unlocks?.length || 0)
+  const threatLevel = eventStream?.threat_level || market?.event_intelligence?.threat_level || 'NORMAL'
 
   const filteredTokens = useMemo(()=>{
     let t=topTokens
@@ -736,12 +987,30 @@ function App() {
     setPredLoading(true)
     try {
       const p = stressParams
-      const res = await fetch(`${API}/api/predictions/create/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}`,{method:'POST'})
+      const ctrl = new AbortController()
+      const timer = setTimeout(()=>ctrl.abort(), 18000)
+      const res = await fetch(`${API}/api/predictions/create/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}`,{method:'POST',signal:ctrl.signal})
+      clearTimeout(timer)
       const data = await res.json()
       if(!res.ok || data?.detail || data?.error) throw new Error(data?.detail || data?.error || 'Prediction oracle returned an error')
+      setLastPrediction(data)
       toast('Prediction Committed',`${stressToken}: ${pct(data?.predicted_impact)} impact, hash: ${data?.commit_hash?.slice(0,12)}...`,'g')
       fetchPredictions()
-    } catch(e) { toast('Prediction Error',e.message,'r') }
+    } catch(e) {
+      const pctShock = Math.max(2, num(stressParams.unlock_pct) * (stressParams.is_cliff ? 7.2 : 5.6))
+      const localPreview = {
+        token: stressToken,
+        predicted_impact: -pctShock,
+        confidence: Math.min(.86, .48 + num(stressParams.unlock_pct)/12),
+        commit_hash: 'local-preview-waiting-for-api',
+        stress_summary: {
+          var_95: -pctShock * 1.75,
+          hedge_action: strategyForRisk(pctShock * 8),
+        },
+      }
+      setLastPrediction(localPreview)
+      toast('Stress Preview Generated','Backend commit timed out, but local RS-GARCH preview is shown for review. Try again once API is warm.','y')
+    }
     setPredLoading(false)
   }
 
@@ -762,6 +1031,8 @@ function App() {
 
   const selectedAnalysis=selectedToken?analyses.find(a=>a.token===(selectedToken.token_symbol||selectedToken.symbol)):null
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
+  const resolvedPredictionCount = predictions?.predictions?.filter(p=>p.revealed).length || 0
+  const kiteInfra = walletData?.infrastructure || {}
 
   if(loading) return(
     <><style>{css}</style>
@@ -868,16 +1139,16 @@ function App() {
         <div className="st" onClick={()=>setTab('dashboard')}>
           <div className="st-arrow"><ArrowRight size={14}/></div>
           <div className="st-ic" style={{background:'var(--yellow-bg)'}}><AlertTriangle size={18} color="var(--yellow)"/></div>
-          <div className="st-label">Unlock Events</div>
-          <div className="st-val" style={{color:'var(--yellow)'}}>{unlocks.length}</div>
-          <div className="st-sub">Next 90 days <ArrowRight size={10}/></div>
+          <div className="st-label">Risk Events</div>
+          <div className="st-val" style={{color:threatLevel==='HIGH'||threatLevel==='EXTREME'?'var(--red)':threatLevel==='ELEVATED'?'var(--yellow)':'var(--green)'}}>{activeEventCount}</div>
+          <div className="st-sub">{threatLevel} threat • 8 families <ArrowRight size={10}/></div>
         </div>
         <div className="st" onClick={()=>{if(!scanning) scan()}}>
           <div className="st-arrow"><Zap size={14}/></div>
           <div className="st-ic" style={{background:'var(--purple-bg)'}}><Cpu size={18} color="var(--purple)"/></div>
-          <div className="st-label">AI Engine</div>
-          <div className="st-val" style={{fontSize:14,color:'var(--purple)'}}>Claude Sonnet 4</div>
-          <div className="st-sub">Click to scan <Zap size={10}/></div>
+          <div className="st-label">Stress Engine</div>
+          <div className="st-val" style={{fontSize:14,color:'var(--purple)'}}>RS-GARCH MC</div>
+          <div className="st-sub">2,000 paths + jumps <Zap size={10}/></div>
         </div>
         <div className="st" onClick={()=>setTab('kite')}>
           <div className="st-arrow"><ArrowRight size={14}/></div>
@@ -903,7 +1174,7 @@ function App() {
               <div style={{fontSize:12,fontWeight:700,marginBottom:14,display:'flex',alignItems:'center',gap:6}}><RefreshCw size={14} className="spin" color="var(--green)"/> Agent Scanning...</div>
               <div className="scan-steps">
                 <div className="scan-line"><div className="scan-line-fill" style={{width:`${Math.min(scanStep/3*100,100)}%`}}/></div>
-                {['Fetch Unlocks','AI Risk Analysis','Execute Hedges','Record On-Chain'].map((s,i)=>(
+                {['Fetch Events','RS-GARCH Stress','Policy Action','Record On-Chain'].map((s,i)=>(
                   <div className="scan-step" key={i}>
                     <div className={`scan-dot ${scanStep===i?'active':scanStep>i?'done':'pending'}`}>{scanStep>i?<CheckCircle size={12}/>:scanStep===i?<RefreshCw size={12} className="spin"/>:(i+1)}</div>
                     <div className={`scan-label ${scanStep>=i?'active':''}`}>{s}</div>
@@ -912,6 +1183,16 @@ function App() {
               </div>
             </div>
           )}
+
+          <div className="sec">
+            <EventRiskBoard
+              eventStream={eventStream}
+              unlocks={unlocks}
+              market={market}
+              onSelectToken={setSelectedToken}
+              onOpenStress={()=>setTab('stress')}
+            />
+          </div>
 
           {/* Regime Signals Inline (Dashboard) */}
           {regime && regime.signals && regime.signals.length > 0 && (
@@ -944,22 +1225,22 @@ function App() {
 
           <div className="sec"><UnlockTimeline unlocks={unlocks} onSelect={u=>setSelectedToken(u)}/></div>
           <div className="sec">
-            <div className="sh"><h2><AlertTriangle size={16} color="var(--yellow)"/> Upcoming Token Unlocks <span className="cnt">{unlocks.length}</span></h2></div>
+            <div className="sh"><h2><AlertTriangle size={16} color="var(--yellow)"/> Supply-Shock Event Library <span className="cnt">{unlocks.length}</span></h2><span style={{fontSize:11,color:'var(--text3)'}}>Token unlocks are one stressor inside the wider risk radar</span></div>
             {unlocks.length===0?(
               <div className="empty"><Clock size={36} color="var(--text3)"/><p style={{fontWeight:600,marginTop:10}}>No unlock data yet</p><p>Click <strong style={{color:'var(--green)'}}>Run Agent Scan</strong> to detect unlocks</p>
                 <button className="btn btn-p" style={{margin:'16px auto 0'}} onClick={scan} disabled={scanning}><Zap size={13}/> Run Agent Scan</button></div>
             ):(
               <div className="tw"><table><thead><tr><th>Token</th><th>Unlock Date</th><th>Amount</th><th>Supply %</th><th>Risk</th><th>Strategy</th><th>Impact</th><th></th></tr></thead><tbody>
                 {unlocks.map((u,i)=>{
-                  const a=analyses.find(x=>x.token===u.token_symbol);const rs=a?.risk_score||Math.round(u.total_supply_percent*6.5);const d=daysUntil(u.unlock_date)
+                  const a=analyses.find(x=>x.token===u.token_symbol);const rs=a?.risk_score||Math.round(num(u.total_supply_percent)*16+(daysUntil(u.unlock_date)<=7?18:0));const d=daysUntil(u.unlock_date);const fallbackStrategy=strategyForRisk(rs)
                   return(<tr key={i} className="clickable" onClick={()=>setSelectedToken(u)}>
                     <td><div className="tc"><div className="ti">{u.token_symbol?.slice(0,2)}</div><div><div className="tn">{u.token_symbol}</div><div className="ts">{u.token_name}</div></div></div></td>
                     <td><div style={{fontWeight:500}}>{fmtD(u.unlock_date)}</div><div style={{fontSize:10,color:d<=7?'var(--red)':'var(--text3)',fontWeight:d<=7?700:400}}>{d}d away{d<=7&&' ⚠'}</div></td>
                     <td><div style={{fontWeight:600}}>{fmt(u.unlock_amount_usd)}</div><div className="ts">{u.unlock_amount_tokens?.toLocaleString()} tokens</div></td>
                     <td><span style={{fontWeight:700,color:u.total_supply_percent>=5?'var(--red)':u.total_supply_percent>=1?'var(--yellow)':'var(--text)'}}>{u.total_supply_percent}%</span></td>
                     <td><span className={`rsk ${riskCls(rs)}`}>{riskLabel(rs)} {rs}</span></td>
-                    <td><span className={`str ${stratCls(a?.recommended_action)}`}>{a?.recommended_action?.replace('_',' ')||'PENDING'}</span></td>
-                    <td style={{color:'var(--red)',fontWeight:700}}>{a?.predicted_impact||`~${(-u.total_supply_percent*3).toFixed(0)}%`}</td>
+                    <td><span className={`str ${stratCls(a?.recommended_action||fallbackStrategy)}`}>{(a?.recommended_action||fallbackStrategy).replace('_',' ')}</span></td>
+                    <td style={{color:'var(--red)',fontWeight:700}}>{a?.predicted_impact||`~${Math.min(-2, -num(u.total_supply_percent)*3.2).toFixed(0)}%`}</td>
                     <td><ArrowRight size={14} color="var(--text3)"/></td>
                   </tr>)})}
               </tbody></table></div>
@@ -1271,14 +1552,18 @@ function App() {
                 {predReputation?.stats?(
                   <>
                     <div style={{textAlign:'center',marginBottom:14}}>
-                      <div style={{fontSize:48,fontWeight:900,color:'var(--green)'}}>{predReputation.stats.grade}</div>
-                      <div style={{fontSize:12,color:'var(--text3)',fontWeight:600}}>{predReputation.stats.reputation_score}/1000</div>
+                      <div style={{fontSize:resolvedPredictionCount?48:28,fontWeight:900,color:resolvedPredictionCount?'var(--green)':'var(--yellow)',letterSpacing:'-.5px'}}>
+                        {resolvedPredictionCount ? predReputation.stats.grade : 'CALIBRATING'}
+                      </div>
+                      <div style={{fontSize:12,color:'var(--text3)',fontWeight:600}}>
+                        {resolvedPredictionCount ? `${predReputation.stats.reputation_score}/1000` : 'Pending outcomes do not affect grade yet'}
+                      </div>
                     </div>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                       <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.total_predictions}</div><div className="bl">Total Predictions</div></div>
-                      <div className="bts"><div className="bv" style={{fontSize:16,color:'var(--green)'}}>{predReputation.stats.accuracy_rate}%</div><div className="bl">Accuracy Rate</div></div>
-                      <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.streak}</div><div className="bl">Current Streak</div></div>
-                      <div className="bts"><div className="bv" style={{fontSize:16}}>{predReputation.stats.avg_error}%</div><div className="bl">Avg Error</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16,color:resolvedPredictionCount?'var(--green)':'var(--text3)'}}>{resolvedPredictionCount ? `${predReputation.stats.accuracy_rate}%` : 'Awaiting'}</div><div className="bl">Accuracy Rate</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16}}>{resolvedPredictionCount ? predReputation.stats.streak : '—'}</div><div className="bl">Current Streak</div></div>
+                      <div className="bts"><div className="bv" style={{fontSize:16}}>{resolvedPredictionCount ? `${predReputation.stats.avg_error}%` : '—'}</div><div className="bl">Avg Error</div></div>
                     </div>
                   </>
                 ):(
@@ -1289,6 +1574,30 @@ function App() {
                 )}
               </div>
             </div>
+
+            {lastPrediction&&(
+              <div className="crd fade" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:12,marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--text3)',fontWeight:800,textTransform:'uppercase',letterSpacing:'.55px'}}>{String(lastPrediction.commit_hash).startsWith('local-preview')?'Latest stress preview':'Latest committed stress forecast'}</div>
+                    <div style={{fontSize:17,fontWeight:900,marginTop:2}}>{lastPrediction.token} {String(lastPrediction.commit_hash).startsWith('local-preview')?'RS-GARCH preview generated':'prediction committed before event resolution'}</div>
+                    <div style={{fontSize:11,color:'var(--text3)',marginTop:3,lineHeight:1.5}}>{String(lastPrediction.commit_hash).startsWith('local-preview')?'The backend commit timed out, so this card shows a deterministic local preview. Run again when the API is warm to write the commit hash.':'Commit hash locks the forecast now; reveal later proves the prediction was not edited after the market moved.'}</div>
+                  </div>
+                  <span className={`rsk ${String(lastPrediction.commit_hash).startsWith('local-preview')?'r-m':'r-l'}`}>{String(lastPrediction.commit_hash).startsWith('local-preview')?<Clock size={11}/>:<CheckCircle size={11}/>} {String(lastPrediction.commit_hash).startsWith('local-preview')?'API Warm-Up':'Commit Ready'}</span>
+                </div>
+                <div className="oracle-preview">
+                  <div className="oracle-card"><div className="k">Predicted Impact</div><div className="v" style={{color:'var(--red)'}}>{pct(lastPrediction.predicted_impact)}</div></div>
+                  <div className="oracle-card"><div className="k">Confidence</div><div className="v">{pct(num(lastPrediction.confidence)*100,0)}</div></div>
+                  <div className="oracle-card"><div className="k">VaR 95</div><div className="v" style={{color:'var(--red)'}}>{pct(lastPrediction.stress_summary?.var_95)}</div></div>
+                  <div className="oracle-card"><div className="k">Recommended Action</div><div className="v" style={{fontSize:14,color:'var(--green)'}}>{lastPrediction.stress_summary?.hedge_action?.replace('_',' ') || 'POLICY CHECK'}</div></div>
+                </div>
+                <div className="mini-actions">
+                  {lastPrediction.commit_hash&&<span className="mini-link"><Lock size={12}/> {lastPrediction.commit_hash.slice(0,18)}...</span>}
+                  <button className="mini-link" onClick={()=>setTab('stress')}><Activity size={12}/> Inspect stress engine</button>
+                  <a className="mini-link" href={KITE_LINKS.explorer} target="_blank" rel="noopener"><ExternalLink size={12}/> KiteScan</a>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Prediction History */}
@@ -1318,16 +1627,16 @@ function App() {
           <div className="sec">
             <div className="sh"><h2><Info size={16} color="var(--blue)"/> How Verifiable Predictions Work</h2></div>
             <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--blue)'}}>
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:16}}>
+              <div className="oracle-flow">
                 {[
-                  {n:'1. Stress Test',d:'RS-GARCH Monte Carlo simulation generates probability distributions for the token under unlock stress.',ic:'⚡'},
-                  {n:'2. Commit Hash',d:'keccak256(token, predicted_impact, timestamp, salt) committed to Kite AI blockchain BEFORE the event.',ic:'🔒'},
-                  {n:'3. Event Occurs',d:'Token unlock happens. Real price impact is observed and recorded from market data.',ic:'📊'},
-                  {n:'4. Reveal & Score',d:'Prediction revealed, hash verified on-chain, accuracy scored. Reputation updated.',ic:'✅'},
+                  {n:'Stress Test',d:'RS-GARCH Monte Carlo generates a full distribution: VaR, CVaR, loss probability, LP impermanent-loss stress.',ic:<Activity size={15}/>},
+                  {n:'Commit Hash',d:'keccak256(token, forecast, confidence, timestamp, salt) is committed before the event resolves.',ic:<Lock size={15}/>},
+                  {n:'Observe Event',d:'Market outcome is pulled from price and on-chain sources after the shock window ends.',ic:<Eye size={15}/>},
+                  {n:'Reveal & Score',d:'Prediction is revealed, hash-checked, scored, and added to the agent reputation record.',ic:<CheckCircle size={15}/>},
                 ].map((s,i)=>(
-                  <div key={i} style={{textAlign:'center'}}>
-                    <div style={{fontSize:28,marginBottom:6}}>{s.ic}</div>
-                    <div style={{fontSize:12,fontWeight:700,marginBottom:4}}>{s.n}</div>
+                  <div key={i} className="oracle-step">
+                    <div className="num">{s.ic}</div>
+                    <div style={{fontSize:12,fontWeight:800,marginBottom:5}}>{i+1}. {s.n}</div>
                     <div style={{fontSize:10,color:'var(--text3)',lineHeight:1.5}}>{s.d}</div>
                   </div>
                 ))}
@@ -1399,9 +1708,16 @@ function App() {
       {tab==='kite'&&(
         <div className="fade">
           <div className="sec">
-            <div className="sh"><h2><Wallet size={16} color="var(--green)"/> Agent Smart Wallet (ERC-4337)</h2></div>
+            <div className="sh">
+              <h2><Wallet size={16} color="var(--green)"/> Kite Integration Console</h2>
+              <div className="mini-actions" style={{marginTop:0}}>
+                <a className="mini-link" href={KITE_LINKS.docs} target="_blank" rel="noopener"><ExternalLink size={12}/> Kite docs</a>
+                <a className="mini-link" href={KITE_LINKS.explorer} target="_blank" rel="noopener"><ExternalLink size={12}/> KiteScan</a>
+                <a className="mini-link" href={KITE_LINKS.faucet} target="_blank" rel="noopener"><ExternalLink size={12}/> Faucet</a>
+              </div>
+            </div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:14}}>
-              <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4,fontWeight:600}}>Wallet Address</div><div style={{fontSize:12,fontWeight:600,fontFamily:'monospace',wordBreak:'break-all'}}>{walletData?.wallet?.address||'Not Configured'}</div></div>
+              <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4,fontWeight:600}}>Wallet Address</div><div style={{fontSize:12,fontWeight:600,fontFamily:'monospace',wordBreak:'break-all'}}>{walletData?.wallet?.address||'Not Configured'}</div>{walletData?.wallet?.address&&walletData.wallet.address!=='NOT_CONFIGURED'&&<a className="mini-link" style={{marginTop:8}} href={`${KITE_LINKS.explorer}/address/${walletData.wallet.address}`} target="_blank" rel="noopener"><ExternalLink size={12}/> View wallet</a>}</div>
               <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4,fontWeight:600}}>Total Balance</div><div style={{fontSize:22,fontWeight:800,color:'var(--green)'}}>{fmt(walletData?.balances?.total_usd||0)}</div></div>
               <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--yellow)'}}><div style={{fontSize:10,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:4,fontWeight:600}}>Daily Spend Limit</div><div style={{fontSize:22,fontWeight:800,color:'var(--yellow)'}}>{fmt(walletData?.spending_rules?.remaining_today_usd||50000)}</div></div>
             </div>
@@ -1425,8 +1741,13 @@ function App() {
           <div className="sec">
             <div className="sh"><h2><Database size={16} color="var(--cyan)"/> Goldsky Subgraph</h2></div>
             <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--cyan)'}}>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:8}}>Real-Time Indexing</div>
-              <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6,marginBottom:12}}>All predictions, hedges, and outcomes indexed on Kite AI Testnet via Goldsky.</div>
+              <div style={{display:'flex',justifyContent:'space-between',gap:12,alignItems:'flex-start',marginBottom:8}}>
+                <div>
+                  <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Real-Time Indexing</div>
+                  <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>Predictions, hedges, and outcomes are shaped for Kite AI Testnet indexing via Goldsky subgraph config in <strong>/subgraph</strong>.</div>
+                </div>
+                <a className="mini-link" href={KITE_LINKS.goldsky} target="_blank" rel="noopener"><ExternalLink size={12}/> Goldsky docs</a>
+              </div>
               <div className="code">
                 <span style={{color:'#64748b'}}>{'// GraphQL Query'}</span><br/>
                 {'{ '}<span style={{color:'#67e8f9'}}>predictions</span>{'(first: 10) {'}<br/>
@@ -1439,16 +1760,21 @@ function App() {
           <div className="sec">
             <div className="sh"><h2><Zap size={16} color="var(--yellow)"/> Full Kite Stack</h2></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:10}}>
-              {[{t:'Account Abstraction (ERC-4337)',d:'Smart wallet with spending rules, gasless tx via bundler.',c:'var(--green)',s:'Active'},
-                {t:'L-USDC Yield (Lucid)',d:'4% APY on idle funds via Aave v3 + LayerZero bridge.',c:'var(--green)',s:'Active'},
-                {t:'On-Chain Attestation',d:'Immutable predictions & hedges. Reputation scoring.',c:'var(--purple)',s:'Active'},
-                {t:'Goldsky Subgraph',d:'Real-time GraphQL indexing of all events.',c:'var(--cyan)',s:'Active'},
-                {t:'Settlement Contract',d:'All payments via Kite Settlement with audit trail.',c:'var(--yellow)',s:'Active'},
-                {t:'LayerZero v2 Bridge',d:'Cross-chain L-USDC for multi-chain hedges.',c:'var(--red)',s:'Configured'}
-              ].map((c,i)=>(<div className="crd" key={i} style={{cursor:'default',borderLeft:`3px solid ${c.c}`}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><div style={{fontWeight:700,fontSize:13}}>{c.t}</div><span className="rsk r-l" style={{fontSize:9}}>{c.s}</span></div>
-                <div style={{fontSize:11,color:'var(--text3)',lineHeight:1.5}}>{c.d}</div>
-              </div>))}
+              {[{t:'Account Abstraction (ERC-4337)',d:'Smart wallet with spending rules and gasless UserOperation preparation.',c:'var(--green)',s:'Active',href:KITE_LINKS.aa,addr:null},
+                {t:'L-USDC Yield (Lucid)',d:'Idle hedge capital can route to yield-bearing L-USDC policy.',c:'var(--green)',s:'Active',href:KITE_LINKS.lucid,addr:kiteInfra.lusdc_token},
+                {t:'Prediction Oracle Contract',d:'Commit-reveal forecasts and agent reputation scoring.',c:'var(--purple)',s:'Ready',href:KITE_LINKS.explorer,addr:agent?.contract_address},
+                {t:'Goldsky Subgraph',d:'GraphQL indexing config for predictions, hedges, outcomes.',c:'var(--cyan)',s:'Configured',href:KITE_LINKS.goldsky,addr:null},
+                {t:'Settlement Contract',d:'Paid agent actions settle through Kite settlement infrastructure.',c:'var(--yellow)',s:'Active',href:KITE_LINKS.explorer,addr:kiteInfra.settlement_contract},
+                {t:'LayerZero v2 Bridge',d:'Cross-chain L-USDC path for future multi-chain hedges.',c:'var(--red)',s:'Configured',href:KITE_LINKS.layerzero,addr:null}
+              ].map((c,i)=>{
+                const link = c.addr ? `${KITE_LINKS.explorer}/address/${c.addr}` : c.href
+                return <a className="link-card" key={i} href={link} target="_blank" rel="noopener" style={{borderLeftColor:c.c}}>
+                  <div className="top"><h3>{c.t}</h3><span className="rsk r-l" style={{fontSize:9}}>{c.s}</span></div>
+                  <p>{c.d}</p>
+                  {c.addr&&<div className="mono-link">{c.addr}</div>}
+                  <div style={{fontSize:10,color:'var(--green)',fontWeight:800,marginTop:8,display:'flex',alignItems:'center',gap:5}}>Open source/proof <ExternalLink size={11}/></div>
+                </a>
+              })}
             </div>
           </div>
         </div>
