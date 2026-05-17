@@ -1190,6 +1190,8 @@ function App() {
   const [headerSearch,setHeaderSearch] = useState('')
   const [showSearchResults,setShowSearchResults] = useState(false)
   const [selectedEvent,setSelectedEvent] = useState(null)
+  const [agentActivity,setAgentActivity] = useState({loop:null,events:[]})
+  const [treasuryData,setTreasuryData] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1403,6 +1405,26 @@ function App() {
     }
   }, [tab]) // eslint-disable-line
 
+  // Live Agent: poll activity feed and treasury passport every 5s when tab is open
+  useEffect(() => {
+    if(tab !== 'agent') return
+    let cancelled = false
+    const pull = async () => {
+      try {
+        const [a,t] = await Promise.all([
+          fetch(`${API}/api/agent/activity?limit=80`).then(r=>r.json()).catch(()=>null),
+          fetch(`${API}/api/agent/treasury`).then(r=>r.json()).catch(()=>null),
+        ])
+        if(cancelled) return
+        if(a) setAgentActivity(a)
+        if(t) setTreasuryData(t)
+      } catch(e) { /* ignore */ }
+    }
+    pull()
+    const id = setInterval(pull, 5000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [tab])
+
   const selectedAnalysis=selectedToken?analyses.find(a=>a.token===(selectedToken.token_symbol||selectedToken.symbol)):null
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
   const resolvedPredictionCount = predictions?.predictions?.filter(p=>p.revealed).length || 0
@@ -1605,7 +1627,7 @@ function App() {
 
       {/* TABS */}
       <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'agent',i:<Cpu size={13}/>,l:'Live Agent'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -2278,6 +2300,171 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ═══ LIVE AGENT ═══ */}
+      {tab==='agent'&&(() => {
+        const loop = agentActivity?.loop
+        const events = agentActivity?.events || []
+        const passport = treasuryData?.passport
+        const hedges = treasuryData?.recent_hedges || []
+        const treasuryReady = treasuryData?.configured && passport && !passport.error
+        const fmtUsd = v => `$${Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0})}`
+        const fmtAgo = ts => {
+          if(!ts) return '—'
+          const sec = Math.max(0,(Date.now()-new Date(ts).getTime())/1000)
+          if(sec<60) return `${Math.round(sec)}s ago`
+          if(sec<3600) return `${Math.round(sec/60)}m ago`
+          return `${Math.round(sec/3600)}h ago`
+        }
+        const levelColor = {success:'var(--green)',warn:'var(--yellow)',error:'var(--red)',info:'var(--text2)'}
+        const kindIcon = {
+          cycle_start:<RefreshCw size={13} className="spin" color="var(--cyan)"/>,
+          cycle_complete:<CheckCircle size={13} color="var(--green)"/>,
+          scan:<Activity size={13} color="var(--blue)"/>,
+          commit:<Lock size={13} color="var(--purple)"/>,
+          hedge:<Zap size={13} color="var(--green)"/>,
+          hedge_blocked:<AlertTriangle size={13} color="var(--yellow)"/>,
+          reveal:<Eye size={13} color="var(--green)"/>,
+          error:<AlertTriangle size={13} color="var(--red)"/>,
+          boot:<Cpu size={13} color="var(--green)"/>,
+          idle:<Clock size={13} color="var(--text3)"/>,
+        }
+        return (
+        <div className="fade">
+          {/* Live agent banner */}
+          <div className="sec">
+            <div className="crd" style={{background:'linear-gradient(135deg,#ecfdf5 0%,#f0fdf4 100%)',border:'1px solid #a7f3d0',padding:18,cursor:'default'}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:14}}>
+                <div style={{display:'flex',alignItems:'center',gap:14}}>
+                  <div style={{width:54,height:54,borderRadius:14,background:loop?.running?'var(--green)':'var(--text3)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                    {loop?.running?<Cpu size={26} color="#fff"/>:<Clock size={26} color="#fff"/>}
+                  </div>
+                  <div>
+                    <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}>Autonomous Agent · Kite AI Testnet</div>
+                    <div style={{fontSize:20,fontWeight:900,color:loop?.running?'var(--green)':'var(--text)'}}>{loop?.running?'RUNNING':loop?.enabled?'starting…':'OFFLINE'}</div>
+                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}}>Cycles: <strong>{loop?.cycles_completed||0}</strong> · Last: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong></div>
+                  </div>
+                </div>
+                <div style={{display:'flex',gap:8}}>
+                  <a className="btn btn-s btn-sm" href={passport?.agent_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Agent on KiteScan</a>
+                  <a className="btn btn-s btn-sm" href={passport?.treasury_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Treasury on KiteScan</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Treasury stats */}
+          {treasuryReady ? (
+            <div className="sec">
+              <div className="sh"><h2><Database size={16} color="var(--cyan)"/> Agent Treasury · on-chain capital execution</h2><span style={{fontSize:11,color:'var(--text3)'}}>Reads live from AgentTreasury contract</span></div>
+              <div className="btg">
+                <div className="bts"><div className="bv" style={{color:'var(--green)'}}>{fmtUsd(passport.balance_usd)}</div><div className="bl">USDC Balance</div></div>
+                <div className="bts"><div className="bv" style={{color:'var(--purple)'}}>{passport.trades}</div><div className="bl">Trades Executed</div></div>
+                <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{fmtUsd(passport.deployed_usd)}</div><div className="bl">USDC Deployed</div></div>
+                <div className="bts"><div className="bv" style={{color:'var(--yellow)'}}>{passport.blocked}</div><div className="bl">Hedges Blocked</div></div>
+              </div>
+              <div className="crd" style={{cursor:'default',marginTop:14,padding:14,borderLeft:'3px solid var(--blue)'}}>
+                <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:8}}>On-chain spending policy (bounded autonomy)</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+                  <div className="bts"><div className="bv" style={{fontSize:15}}>{fmtUsd(passport.policy?.max_single_trade_usd)}</div><div className="bl">Max Single Trade</div></div>
+                  <div className="bts"><div className="bv" style={{fontSize:15}}>{fmtUsd(passport.policy?.daily_cap_usd)}</div><div className="bl">Daily Cap (24h)</div></div>
+                  <div className="bts"><div className="bv" style={{fontSize:15}}>≥ {passport.policy?.min_risk_score||0}</div><div className="bl">Min Risk Threshold</div></div>
+                </div>
+                <div style={{fontSize:11,color:'var(--text2)',marginTop:10,lineHeight:1.5}}>Remaining headroom today: <strong style={{color:'var(--green)'}}>{fmtUsd(passport.headroom_usd)}</strong>. The agent cannot widen its own bounds — only the owner can update policy.</div>
+              </div>
+
+              {/* Hedge history */}
+              {hedges.length>0?(
+                <div className="tw" style={{marginTop:14}}>
+                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Tx</th></tr></thead><tbody>
+                    {hedges.map((h,i)=>{
+                      const url = kiteScanUrl(h.prediction_ref) // commit hash
+                      return (
+                        <tr key={h.id}>
+                          <td style={{fontSize:11,color:'var(--text3)'}}>{h.id}</td>
+                          <td style={{fontWeight:700}}>{h.token}</td>
+                          <td><span className={`str ${stratCls(h.action)}`}>{h.action.replace('_',' ')}</span></td>
+                          <td><span className={`rsk ${riskCls(h.risk_score)}`}>{h.risk_score}</span></td>
+                          <td style={{fontWeight:700,color:'var(--green)'}}>{fmtUsd(h.amount_usd)}</td>
+                          <td style={{fontSize:11,color:'var(--text3)'}}>{new Date(h.timestamp*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
+                          <td>{url?<a href={url} target="_blank" rel="noopener" style={{color:'var(--green)',fontSize:11}}><ExternalLink size={12}/></a>:<span style={{fontSize:10,color:'var(--text3)'}}>—</span>}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody></table>
+                </div>
+              ):(
+                <div style={{marginTop:14,padding:14,textAlign:'center',fontSize:12,color:'var(--text3)'}}>No hedges executed yet — agent only acts when risk score ≥ {passport.policy?.min_risk_score||35} and policy gates pass.</div>
+              )}
+            </div>
+          ):(
+            <div className="sec">
+              <div className="crd" style={{borderLeft:'3px solid var(--yellow)',padding:16,cursor:'default'}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                  <AlertTriangle size={18} color="var(--yellow)" style={{flexShrink:0,marginTop:2}}/>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:800,fontSize:13,marginBottom:4}}>Treasury contract not deployed yet</div>
+                    <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.6}}>The agent loop is committing predictions to Kite, but USDC hedge execution requires the AgentTreasury contract. Deploy it via:</div>
+                    <pre style={{marginTop:8,padding:10,background:'var(--bg3)',borderRadius:6,fontSize:11,overflow:'auto'}}>{`cd contracts
+npx hardhat run deploy_treasury.js --network kiteTestnet
+# then set TREASURY_ADDRESS and USDC_ADDRESS on Render`}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Live activity feed */}
+          <div className="sec">
+            <div className="sh">
+              <h2><Activity size={16} color="var(--green)"/> Live Activity Feed <span className="cnt">{events.length}</span></h2>
+              <span style={{fontSize:11,color:'var(--text3)',display:'flex',alignItems:'center',gap:4}}><span className="pulse-dot" style={{background:loop?.running?'var(--green)':'var(--text3)'}}/> Polling every 5s</span>
+            </div>
+            {events.length===0?(
+              <div className="empty"><Cpu size={36} color="var(--text3)"/><p style={{fontWeight:600,marginTop:10}}>Agent warming up…</p><p>The autonomous loop starts on backend boot and produces its first decision within {loop?.interval_seconds||90}s.</p></div>
+            ):(
+              <div style={{maxHeight:480,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r)',background:'var(--bg)'}}>
+                {events.map((e,i)=>(
+                  <div key={e.seq} style={{display:'flex',gap:10,padding:'10px 14px',borderBottom:i<events.length-1?'1px solid var(--border)':'none',alignItems:'flex-start'}}>
+                    <div style={{flexShrink:0,marginTop:2}}>{kindIcon[e.kind]||<Activity size={13} color="var(--text3)"/>}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:12,color:levelColor[e.level]||'var(--text)',fontWeight:e.level==='success'||e.level==='error'?700:500,lineHeight:1.5}}>{e.message}</div>
+                      <div style={{fontSize:10,color:'var(--text3)',marginTop:2,display:'flex',gap:8,flexWrap:'wrap'}}>
+                        <span>{new Date(e.timestamp).toLocaleTimeString('en-US',{hour12:false})}</span>
+                        <span style={{textTransform:'uppercase',letterSpacing:'.4px'}}>{e.kind.replace(/_/g,' ')}</span>
+                        {(() => { const url = kiteScanUrl(e.tx_hash); return url ? <a href={url} target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>tx on KiteScan ↗</a> : null })()}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Architecture / criteria mapping */}
+          <div className="sec">
+            <div className="sh"><h2><Info size={16} color="var(--blue)"/> How this maps to Kite AI Track 2 criteria</h2></div>
+            <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--blue)',padding:16}}>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14}}>
+                {[
+                  ['Agent Autonomy','Backend loop runs every '+(loop?.interval_seconds||90)+'s with no user input. Each cycle scans, commits predictions, and executes hedges within bounded policy.'],
+                  ['Executes Paid Actions','USDC transfers via the AgentTreasury contract. Every hedge is a real on-chain transaction with gas + USDC settlement.'],
+                  ['Settles on Kite','Both predictions (oracle commits) and hedges (treasury transfers) settle on Kite AI Testnet Chain 2368.'],
+                  ['Stablecoin-First','All capital moves in USDC (6-decimal mock). No native gas token used for the actual hedge — only stablecoin settlement.'],
+                  ['Reputation-Aware','Predictions feed the on-chain reputation score (Grade S-F, 0-1000). Future capital delegators can read this to size their trust.'],
+                  ['Programmable Constraints','Max single trade, daily cap, and minimum risk threshold are enforced on-chain by the treasury contract, not just in code.'],
+                ].map(([title,body],i)=>(
+                  <div key={i} style={{background:'var(--bg3)',padding:12,borderRadius:'var(--r3)'}}>
+                    <div style={{fontWeight:700,fontSize:12,marginBottom:4,color:'var(--green)'}}>{title}</div>
+                    <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5}}>{body}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        )
+      })()}
 
       {/* ═══ KITE ECOSYSTEM ═══ */}
       {tab==='kite'&&(

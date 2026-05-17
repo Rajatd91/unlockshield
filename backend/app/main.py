@@ -78,3 +78,10 @@ app.include_router(wallet.router, prefix="/api/wallet", tags=["Agent Wallet"])
 app.include_router(events.router, prefix="/api/events", tags=["Event Intelligence"])
 app.include_router(stress.router, prefix="/api/stress", tags=["Stress Testing"])
 app.include_router(predictions.router, prefix="/api/predictions", tags=["Verifiable Predictions"])
+
+
+@app.on_event("startup")
+async def _start_autonomous_agent():
+    """Spawn the background autonomous agent loop on FastAPI startup."""
+    from app.services.agent_loop import start_agent_loop
+    start_agent_loop()

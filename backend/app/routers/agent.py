@@ -175,3 +175,34 @@ async def get_agent_status():
         "total_hedges": len(get_hedge_history()),
         "total_value_protected": f"${get_total_value_protected():,.2f}",
     }
+
+
+@router.get("/activity")
+async def get_agent_activity(limit: int = 50):
+    """
+    Live feed of autonomous agent decisions. Frontend polls this to render
+    a real-time activity log that shows the agent is actually running
+    without user input.
+    """
+    from app.services.agent_loop import activity_log, loop_status
+    return {
+        "loop": loop_status(),
+        "events": activity_log.snapshot(limit=max(1, min(int(limit), 200))),
+    }
+
+
+@router.get("/treasury")
+async def get_treasury_passport():
+    """
+    On-chain agent passport: identity, spending policy, treasury balance,
+    trades executed, hedges blocked. Reads directly from the AgentTreasury
+    contract on Kite AI.
+    """
+    from app.services.treasury_service import treasury_service
+    passport = treasury_service.passport()
+    hedges = treasury_service.recent_hedges(limit=20)
+    return {
+        "configured": treasury_service.is_configured(),
+        "passport": passport,
+        "recent_hedges": hedges,
+    }
