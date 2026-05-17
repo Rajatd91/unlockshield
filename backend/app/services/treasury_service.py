@@ -82,6 +82,11 @@ class TreasuryService:
             "0x000000000000000000000000000000000000dEaD",
         )
 
+        # In-memory cache: hedge_id → real executeHedge tx hash.
+        # The on-chain HedgeAction struct doesn't store the tx hash itself
+        # so we cache it here when we submit the tx.
+        self._tx_hash_cache: Dict[int, str] = {}
+
         self.w3 = None
         self.account = None
         self.treasury = None
@@ -126,11 +131,15 @@ class TreasuryService:
             )
         try:
             amount_usdc = int(round(max(0.0, float(amount_usd)) * 1_000_000))
-            ref_bytes = Web3.to_bytes(hexstr=prediction_ref) if prediction_ref.startswith("0x") else Web3.to_bytes(hexstr="0x" + prediction_ref)
-            if len(ref_bytes) < 32:
-                ref_bytes = ref_bytes.rjust(32, b"\x00")
-            else:
-                ref_bytes = ref_bytes[:32]
+            # Defensive: normalize prediction_ref to a valid bytes32.
+            # If the input is not pure hex, fall back to zero ref.
+            import re
+            raw = str(prediction_ref or "")
+            stripped = raw[2:] if raw.lower().startswith("0x") else raw
+            if not re.fullmatch(r"[0-9a-fA-F]+", stripped or ""):
+                stripped = "0" * 64  # invalid → zero ref
+            stripped = stripped.lower()[:64].rjust(64, "0")
+            ref_bytes = Web3.to_bytes(hexstr="0x" + stripped)
 
             tx = self.treasury.functions.executeHedge(
                 token,
@@ -159,13 +168,16 @@ class TreasuryService:
 
             if executed:
                 hist_count = self.treasury.functions.historyCount().call()
+                hedge_id = hist_count - 1
+                # Cache the real tx hash so the UI can show it per row
+                self._tx_hash_cache[hedge_id] = tx_hex
                 return HedgeReceipt(
                     success=True,
                     reason="executed",
                     amount_usd=amount_usd,
                     tx_hash=tx_hex,
                     explorer_url=f"https://testnet.kitescan.ai/tx/{tx_hex}",
-                    hedge_id=hist_count - 1,
+                    hedge_id=hedge_id,
                 )
             if blocked:
                 return HedgeReceipt(
@@ -228,8 +240,10 @@ class TreasuryService:
             for i in range(count - 1, start - 1, -1):
                 h = self.treasury.functions.history(i).call()
                 ref_hex = "0x" + h[7].hex() if isinstance(h[7], bytes) else _hex_with_prefix(h[7])
+                hedge_id = int(h[0])
+                tx_hash = self._tx_hash_cache.get(hedge_id)
                 out.append({
-                    "id": int(h[0]),
+                    "id": hedge_id,
                     "token": h[1],
                     "action": h[2],
                     "risk_score": int(h[3]),
@@ -237,6 +251,8 @@ class TreasuryService:
                     "recipient": h[5],
                     "timestamp": int(h[6]),
                     "prediction_ref": ref_hex,
+                    "tx_hash": tx_hash,
+                    "explorer_url": f"https://testnet.kitescan.ai/tx/{tx_hash}" if tx_hash else None,
                 })
             return out
         except Exception as e:

@@ -95,11 +95,11 @@ activity_log = AgentActivityLog()
 class PositionState:
     """Tracks the agent's open hedge exposure per token + last-known model state."""
     def __init__(self):
-        # token → {"hedged_usd": float, "last_commit_id": str, "last_predicted": float,
-        #          "last_commit_at": datetime, "actions_taken": int}
+        # token → state dict with hedge total, last commit hash (NOT commit_id), etc.
         self.positions: Dict[str, Dict] = defaultdict(lambda: {
             "hedged_usd": 0.0,
             "last_commit_id": None,
+            "last_commit_hash": None,        # the actual keccak hex string (for treasury ref)
             "last_predicted": None,
             "last_commit_at": None,
             "actions_taken": 0,
@@ -112,8 +112,9 @@ class PositionState:
         self.positions[token]["hedged_usd"] += amount_usd
         self.positions[token]["actions_taken"] += 1
 
-    def record_commit(self, token: str, commit_id: str, predicted: float):
+    def record_commit(self, token: str, commit_id: str, commit_hash: str, predicted: float):
         self.positions[token]["last_commit_id"] = commit_id
+        self.positions[token]["last_commit_hash"] = commit_hash
         self.positions[token]["last_predicted"] = predicted
         self.positions[token]["last_commit_at"] = datetime.utcnow()
 
@@ -530,7 +531,7 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
         oracle.reputation.total_predictions += 1
 
         tx_hash = await oracle.commit_to_chain(commit_id)
-        position_state.record_commit(unlock.token_symbol, commit_id, predicted_impact)
+        position_state.record_commit(unlock.token_symbol, commit_id, commit_hash, predicted_impact)
         committed_count = 1
 
         change_note = "model shift" if (pred_changed and last_pred is not None) else ("re-anchor" if stale else "initial")
@@ -591,12 +592,19 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
             # Cap top-up at policy max single trade
             top_up = min(gap, 1000.0)  # policy max
             top_up = round(top_up, 2)
+            # Use fresh commit hash if we just committed; else the last stored hash;
+            # else zero bytes32 (so the contract still accepts the tx)
+            ref_for_treasury = (
+                commit_hash
+                or pos.get("last_commit_hash")
+                or ("0x" + "0" * 64)
+            )
             receipt = treasury_service.execute_hedge(
                 token=unlock.token_symbol,
                 action=strategy,
                 risk_score=risk,
                 amount_usd=top_up,
-                prediction_ref=commit_hash or (pos.get("last_commit_id") or "0x" + "0"*64),
+                prediction_ref=ref_for_treasury,
             )
             if receipt.success:
                 position_state.credit_hedge(unlock.token_symbol, top_up)

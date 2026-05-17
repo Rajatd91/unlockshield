@@ -2398,11 +2398,11 @@ function App() {
               {/* Hedge history */}
               {hedges.length>0?(
                 <div className="tw" style={{marginTop:14}}>
-                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Prediction Ref</th></tr></thead><tbody>
+                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Tx</th></tr></thead><tbody>
                     {hedges.map((h,i)=>{
-                      // h.prediction_ref is the keccak commit hash from oracle,
-                      // not the executeHedge tx hash. Link it to the oracle contract.
-                      const refUrl = kiteScanUrl(h.prediction_ref)
+                      // h.tx_hash is the REAL executeHedge transaction hash
+                      // (cached in treasury_service when the tx was submitted).
+                      const txUrl = kiteScanUrl(h.tx_hash)
                       return (
                         <tr key={h.id}>
                           <td style={{fontSize:11,color:'var(--text3)'}}>{h.id}</td>
@@ -2411,17 +2411,17 @@ function App() {
                           <td><span className={`rsk ${riskCls(h.risk_score)}`}>{h.risk_score}</span></td>
                           <td style={{fontWeight:700,color:'var(--green)'}}>{fmtUsd(h.amount_usd)}</td>
                           <td style={{fontSize:11,color:'var(--text3)'}}>{new Date(h.timestamp*1000).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</td>
-                          <td><span style={{fontSize:10,color:'var(--text3)',fontFamily:'monospace'}}>{h.prediction_ref ? `${h.prediction_ref.slice(0,10)}…` : '—'}</span></td>
+                          <td>{txUrl ? (
+                            <a href={txUrl} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,color:'var(--green)',fontSize:11,fontWeight:600,textDecoration:'none',fontFamily:'monospace'}} title={h.tx_hash}>
+                              {h.tx_hash.slice(0,8)}…{h.tx_hash.slice(-4)} <ExternalLink size={11}/>
+                            </a>
+                          ) : (
+                            <span style={{fontSize:10,color:'var(--text3)'}} title="Tx hash only available for hedges submitted since the current backend boot.">— pre-restart</span>
+                          )}</td>
                         </tr>
                       )
                     })}
                   </tbody></table>
-                  <div style={{padding:'12px 6px',fontSize:11,color:'var(--text3)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                    <span>{hedges.length} hedge events stored on-chain in <code style={{background:'var(--bg3)',padding:'2px 6px',borderRadius:4}}>AgentTreasury</code></span>
-                    <a href={treasuryData?.passport?.treasury_explorer} target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>
-                      View all txs on KiteScan ↗
-                    </a>
-                  </div>
                 </div>
               ):(
                 <div style={{marginTop:14,padding:14,textAlign:'center',fontSize:12,color:'var(--text3)'}}>No hedges executed yet — agent only acts when risk score ≥ {passport.policy?.min_risk_score||35} and policy gates pass.</div>
