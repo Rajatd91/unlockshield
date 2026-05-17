@@ -6,7 +6,7 @@ Comprehensive unlock schedule — dynamic API + curated fallback.
 Architecture (how a real startup does this):
   1. PRIMARY: Tokenomist API — real-time unlock data for 200+ tokens
   2. FALLBACK: Curated unlock schedule from public vesting documentation
-  3. ENRICHMENT: CoinGecko prices (batch API for efficiency)
+  3. ENRICHMENT: CoinPaprika prices (batch API for efficiency)
   4. CLASSIFICATION: Each unlock tagged with category, recipients, cliff status
 
 The system auto-detects which data source to use. If Tokenomist is
@@ -20,7 +20,7 @@ import httpx
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 from app.models.schemas import TokenUnlock
-from app.services.market_data import fetch_prices_batch, COINGECKO_IDS
+from app.services.market_data import fetch_prices_batch, fetch_token_detail
 from app.services.data_providers import tokenomist_upcoming_unlocks
 
 # ── Comprehensive Curated Unlock Schedule ──────────────────────────────
@@ -273,16 +273,15 @@ async def fetch_upcoming_unlocks(days_ahead: int = 90) -> List[TokenUnlock]:
 
 async def fetch_token_history(symbol: str, days: int = 30) -> dict:
     """Fetch historical price data for AI analysis context"""
-    cg_id = COINGECKO_IDS.get(symbol.upper())
-    if not cg_id:
-        return {}
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://api.coingecko.com/api/v3/coins/{cg_id}/market_chart",
-                params={"vs_currency": "usd", "days": days}, timeout=10.0
-            )
-            return resp.json() if resp.status_code == 200 else {}
+        detail = await fetch_token_detail(symbol)
+        prices = detail.get("price_history_30d", [])[-days:]
+        volumes = detail.get("volume_history_30d", [])[-days:]
+        return {
+            "prices": [[i, p] for i, p in enumerate(prices)],
+            "total_volumes": [[i, v] for i, v in enumerate(volumes)],
+            "source": detail.get("history_source", "unknown"),
+        }
     except Exception as e:
         print(f"History fetch error for {symbol}: {e}")
         return {}

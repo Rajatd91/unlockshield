@@ -30,7 +30,7 @@ from app.models.schemas import TokenUnlock, RiskAnalysis
 client = AsyncAnthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
 # ── Historical Unlock Impact Database ──────────────────────────────────
-# Real data sourced from CoinGecko, Messari, and on-chain analysis.
+# Real data sourced from market APIs, public research, and on-chain analysis.
 # Each entry: date of unlock, % supply unlocked, 7-day price impact, pre-price.
 HISTORICAL_IMPACTS = {
     "ARB": [

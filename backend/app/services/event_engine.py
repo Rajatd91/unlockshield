@@ -719,28 +719,29 @@ async def fetch_crypto_news() -> List[Dict]:
         except Exception as e:
             print(f"MarketAux error: {e}")
 
-    # Fallback: CoinGecko trending (always available, no key needed)
+    # Fallback: CoinPaprika market movers (no key; avoids public price API rate limits)
     if not articles:
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.get("https://api.coingecko.com/api/v3/search/trending")
-                if resp.status_code == 200:
-                    trending = resp.json().get("coins", [])
-                    for item in trending:
-                        coin = item.get("item", {})
-                        articles.append({
-                            "title": f"Trending: {coin.get('name', '')} ({coin.get('symbol', '')})",
-                            "description": f"#{coin.get('market_cap_rank', 'N/A')} by market cap, score: {coin.get('score', 0)}",
-                            "url": "",
-                            "source": "coingecko_trending",
-                            "published_at": datetime.now(timezone.utc).isoformat(),
-                            "category": "trending",
-                            "sentiment": 0,
-                            "relevance": 0.5,
-                            "entities": [],
-                        })
+            from app.services.data_providers import coinpaprika_market_full
+            movers = sorted(
+                await coinpaprika_market_full(limit=150),
+                key=lambda t: abs(t.get("change_24h", 0)) * max(t.get("volume_to_mcap", 0), 1),
+                reverse=True,
+            )[:8]
+            for coin in movers:
+                articles.append({
+                    "title": f"Market mover: {coin.get('name', '')} ({coin.get('symbol', '')})",
+                    "description": f"24h change {coin.get('change_24h', 0):+.2f}%, volume/mcap {coin.get('volume_to_mcap', 0):.1f}%.",
+                    "url": "",
+                    "source": "coinpaprika_market_movers",
+                    "published_at": datetime.now(timezone.utc).isoformat(),
+                    "category": "trending",
+                    "sentiment": coin.get("change_24h", 0) / 100,
+                    "relevance": min(1.0, coin.get("volume_to_mcap", 0) / 50),
+                    "entities": [{"symbol": coin.get("symbol"), "name": coin.get("name"), "type": "crypto"}],
+                })
         except Exception as e:
-            print(f"CoinGecko trending fallback error: {e}")
+            print(f"CoinPaprika mover fallback error: {e}")
 
     _set_event_cached("crypto_news", articles)
     return articles

@@ -76,7 +76,7 @@ One API call triggers the entire pipeline. The key innovation: **predictions are
 │                                                              │
 │  ┌─────────────────────────────────────────────────────────┐│
 │  │ DATA PROVIDERS (data_providers.py)                      ││
-│  │  • CoinGecko ─── 300+ tokens, prices, volume, mcap     ││
+│  │  • CoinPaprika ─ 300+ tokens, prices, volume, mcap     ││
 │  │  • Tokenomist ── Dynamic unlock schedules (200+ tokens) ││
 │  │  • DeFiLlama ─── TVL, protocol health, chain metrics    ││
 │  │  • Fear & Greed ─ Crypto sentiment index (0-100)        ││
@@ -131,7 +131,8 @@ UnlockShield isn't a toy — it processes real market data at scale:
 
 | Source | Coverage | Data | Update Frequency |
 |--------|----------|------|-----------------|
-| CoinGecko | Top 300 tokens | Price, volume, market cap, 7d sparkline, ATH | Every 2 min |
+| CoinPaprika | Top 300 tokens | Price, volume, market cap, 1h/24h/7d/30d changes | Every 5 min |
+| Binance public candles | Liquid USDT pairs | Daily OHLCV for stress-engine return estimation | On demand |
 | Tokenomist | 200+ tokens | Vesting schedules, cliff dates, recipients | Every 15 min |
 | DeFiLlama | 50+ protocols | TVL, TVL change, chain breakdown | Every 5 min |
 | Fear & Greed | Market-wide | Sentiment index (0-100) | Every 10 min |
@@ -149,7 +150,7 @@ Every token is classified for portfolio analytics:
 | DeFi | UNI, AAVE, GMX, PENDLE, DYDX | Green |
 | Gaming | AXS, SAND, GALA, IMX, RONIN | Yellow |
 | Infrastructure | LINK, GRT, PYTH, RENDER, WLD | Cyan |
-| Meme | DOGE, SHIB, PEPE, WIF, BONK | Pink |
+| Altcoin / retail beta | DOGE, SHIB, PEPE, WIF, BONK | Pink |
 
 ## Risk Analysis Model
 
@@ -218,7 +219,7 @@ Validated on **13 real historical unlock events** from 2024-2025:
 | AI Engine | Claude Sonnet 4 (Anthropic) | Multi-factor risk analysis |
 | Blockchain | Kite AI Testnet (EVM, Chain ID 2368) | Immutable attestation layer |
 | Frontend | React 18, Vite, Lucide Icons | Bloomberg-style dashboard |
-| Data: Prices | CoinGecko API | 300+ token prices & market data |
+| Data: Prices | CoinPaprika API + Binance public candles | 300+ token prices, market data & liquid-pair OHLCV |
 | Data: Unlocks | Tokenomist API + curated | Vesting schedules for 200+ tokens |
 | Data: TVL | DeFiLlama API | Protocol health & DeFi metrics |
 | Data: Sentiment | Alternative.me API | Fear & Greed Index |

@@ -136,7 +136,7 @@ async def get_agent_status():
         "ai_engine": "Claude Sonnet 4 (claude-sonnet-4-20250514)",
         "risk_model": "5-factor weighted: Supply Shock (35%), Historical Pattern (25%), Recipient Type (20%), Market Regime (10%), Time Urgency (10%)",
         "capabilities": [
-            "Full market surveillance (300+ tokens via CoinGecko)",
+            "Full market surveillance (300+ tokens via CoinPaprika)",
             "Dynamic unlock monitoring (40+ tokens via Tokenomist + curated)",
             "AI multi-factor risk analysis (Claude Sonnet 4)",
             "6 hedge strategies (FULL_EXIT → HOLD) with execution plans",
@@ -150,7 +150,7 @@ async def get_agent_status():
             "Verifiable reputation tracking via smart contract",
         ],
         "data_sources": [
-            "CoinGecko (top 300 tokens — prices, volume, market cap, sparklines)",
+            "CoinPaprika (top 300 tokens — prices, volume, market cap, percentage changes)",
             "Tokenomist API (dynamic unlock schedules for 200+ tokens)",
             "DeFiLlama (Total Value Locked for 50+ DeFi protocols)",
             "Alternative.me (Crypto Fear & Greed Index)",

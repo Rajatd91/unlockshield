@@ -77,7 +77,7 @@ async def get_market_regime():
 async def get_sector_performance():
     """
     Sector performance heatmap across 1h, 24h, 7d, 30d timeframes.
-    Sectors: L1, L2, DeFi, Gaming, Infra, Meme, Stable.
+    Sectors: L1, L2, DeFi, Gaming, Infra, Altcoin, Stable.
     """
     return await get_sector_heatmap()
 

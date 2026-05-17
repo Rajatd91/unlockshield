@@ -5,7 +5,7 @@ Unified data layer that aggregates from multiple sources — the same architectu
 used by professional trading desks and hedge funds.
 
 Data Sources:
-  1. CoinGecko     — 250+ tokens, prices, volume, market cap, sparklines
+  1. CoinPaprika   — market universe, prices, volume, market cap, percentage changes
   2. Tokenomist    — Dynamic token unlock/vesting schedules (API + fallback)
   3. DeFiLlama     — Total Value Locked (TVL), protocol metrics, chain TVL
   4. Fear & Greed  — Crypto Fear & Greed Index (Alternative.me)
@@ -15,7 +15,7 @@ Architecture:
   - Every data source has a primary (API) and fallback (cached/computed) path
   - In-memory cache with configurable TTL per source
   - Batch requests where possible to minimize API calls
-  - Rate limiting compliant with free-tier CoinGecko (30 req/min)
+  - Rate limiting compliant with free public market-data APIs
 
 Production Roadmap (post-hackathon):
   - Token Terminal API — institutional vesting data
@@ -36,7 +36,7 @@ _cache: Dict[str, dict] = {}
 # Different TTLs for different data freshness needs
 CACHE_TTL = {
     "prices": 60,          # 1 min — prices need to be fresh
-    "market_overview": 120, # 2 min — overview can be slightly stale
+    "market_overview": 300, # 5 min — protect free API quotas during demos
     "token_detail": 180,    # 3 min — detail pages cache longer
     "tvl": 300,             # 5 min — TVL changes slowly
     "fear_greed": 600,      # 10 min — sentiment doesn't change fast
@@ -85,15 +85,15 @@ SECTOR_MAP = {
     "FET": "Infra", "OCEAN": "Infra", "TAO": "Infra",
     # Stablecoins
     "USDT": "Stable", "USDC": "Stable", "DAI": "Stable", "FRAX": "Stable",
-    # Memecoins (market sentiment proxy)
-    "DOGE": "Meme", "SHIB": "Meme", "PEPE": "Meme", "WIF": "Meme",
-    "BONK": "Meme", "FLOKI": "Meme",
+    # Community / retail beta names. The regime model uses broader altcoin strength.
+    "DOGE": "Altcoin", "SHIB": "Altcoin", "PEPE": "Altcoin", "WIF": "Altcoin",
+    "BONK": "Altcoin", "FLOKI": "Altcoin",
 }
 
 SECTOR_COLORS = {
     "L1": "#3b82f6", "L2": "#8b5cf6", "DeFi": "#10b981",
     "Gaming": "#f59e0b", "Infra": "#06b6d4", "Stable": "#94a3b8",
-    "Meme": "#f472b6", "Other": "#64748b",
+    "Altcoin": "#f472b6", "Other": "#64748b",
 }
 
 def classify_sector(symbol: str) -> str:
@@ -101,161 +101,194 @@ def classify_sector(symbol: str) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# SOURCE 1: CoinGecko — Full Market Data (250+ tokens)
+# SOURCE 1: CoinPaprika — Full Market Data (300+ tokens)
 # ═══════════════════════════════════════════════════════════════════════
 
-async def coingecko_market_full(pages: int = 3) -> List[Dict]:
+COINPAPRIKA_BASE = "https://api.coinpaprika.com/v1"
+
+FALLBACK_MARKET_TOKENS = [
+    {"id": "btc-bitcoin", "symbol": "BTC", "name": "Bitcoin", "rank": 1, "price": 103000, "market_cap": 2050000000000, "volume_24h": 52000000000, "change_1h": 0.1, "change_24h": -0.4, "change_7d": 1.9, "change_30d": 7.8},
+    {"id": "eth-ethereum", "symbol": "ETH", "name": "Ethereum", "rank": 2, "price": 3900, "market_cap": 470000000000, "volume_24h": 26000000000, "change_1h": 0.2, "change_24h": -0.8, "change_7d": 2.5, "change_30d": 12.1},
+    {"id": "usdt-tether", "symbol": "USDT", "name": "Tether", "rank": 3, "price": 1, "market_cap": 115000000000, "volume_24h": 69000000000, "change_1h": 0, "change_24h": 0, "change_7d": 0, "change_30d": 0},
+    {"id": "bnb-binance-coin", "symbol": "BNB", "name": "BNB", "rank": 4, "price": 690, "market_cap": 101000000000, "volume_24h": 2100000000, "change_1h": -0.1, "change_24h": -1.3, "change_7d": -0.6, "change_30d": 4.2},
+    {"id": "sol-solana", "symbol": "SOL", "name": "Solana", "rank": 5, "price": 174, "market_cap": 89000000000, "volume_24h": 5300000000, "change_1h": 0.5, "change_24h": -2.2, "change_7d": 4.8, "change_30d": 19.2},
+    {"id": "xrp-xrp", "symbol": "XRP", "name": "XRP", "rank": 6, "price": 0.62, "market_cap": 35000000000, "volume_24h": 1700000000, "change_1h": -0.2, "change_24h": -1.0, "change_7d": 0.8, "change_30d": 2.6},
+    {"id": "usdc-usd-coin", "symbol": "USDC", "name": "USD Coin", "rank": 7, "price": 1, "market_cap": 33000000000, "volume_24h": 8800000000, "change_1h": 0, "change_24h": 0, "change_7d": 0, "change_30d": 0},
+    {"id": "ada-cardano", "symbol": "ADA", "name": "Cardano", "rank": 8, "price": 0.73, "market_cap": 26000000000, "volume_24h": 910000000, "change_1h": 0.1, "change_24h": -1.8, "change_7d": 3.1, "change_30d": 9.5},
+    {"id": "doge-dogecoin", "symbol": "DOGE", "name": "Dogecoin", "rank": 9, "price": 0.17, "market_cap": 25000000000, "volume_24h": 2100000000, "change_1h": 0.8, "change_24h": -3.4, "change_7d": 8.7, "change_30d": 22.0},
+    {"id": "avax-avalanche", "symbol": "AVAX", "name": "Avalanche", "rank": 10, "price": 38, "market_cap": 15000000000, "volume_24h": 680000000, "change_1h": 0.2, "change_24h": -2.6, "change_7d": -1.8, "change_30d": 5.1},
+    {"id": "link-chainlink", "symbol": "LINK", "name": "Chainlink", "rank": 11, "price": 17.5, "market_cap": 10500000000, "volume_24h": 820000000, "change_1h": -0.1, "change_24h": -1.1, "change_7d": 6.5, "change_30d": 10.4},
+    {"id": "uni-uniswap", "symbol": "UNI", "name": "Uniswap", "rank": 12, "price": 9.1, "market_cap": 5500000000, "volume_24h": 310000000, "change_1h": 0.4, "change_24h": -2.9, "change_7d": 7.1, "change_30d": 16.3},
+    {"id": "arb-arbitrum", "symbol": "ARB", "name": "Arbitrum", "rank": 13, "price": 1.05, "market_cap": 4100000000, "volume_24h": 410000000, "change_1h": -0.4, "change_24h": -4.2, "change_7d": -6.8, "change_30d": -3.2},
+    {"id": "op-optimism", "symbol": "OP", "name": "Optimism", "rank": 14, "price": 2.15, "market_cap": 3800000000, "volume_24h": 350000000, "change_1h": -0.3, "change_24h": -3.7, "change_7d": -4.1, "change_30d": 1.8},
+    {"id": "tia-celestia", "symbol": "TIA", "name": "Celestia", "rank": 15, "price": 8.2, "market_cap": 2100000000, "volume_24h": 280000000, "change_1h": -0.6, "change_24h": -5.8, "change_7d": -11.2, "change_30d": -18.7},
+]
+
+
+def _fallback_market_tokens(limit: int = 300) -> List[Dict]:
+    """Last-known demo snapshot used only when all live market sources fail."""
+    enriched = []
+    for t in FALLBACK_MARKET_TOKENS[:limit]:
+        item = dict(t)
+        item.update({
+            "volume_to_mcap": round((item["volume_24h"] / item["market_cap"]) * 100, 2) if item["market_cap"] else 0,
+            "ath": 0,
+            "ath_change_pct": 0,
+            "sparkline_7d": [],
+            "sector": classify_sector(item["symbol"]),
+            "image": "",
+            "data_source": "fallback_snapshot",
+            "data_quality": "stale_provider_fallback",
+        })
+        enriched.append(item)
+    return enriched
+
+
+def _normalize_coinpaprika_ticker(t: Dict) -> Dict:
+    symbol = (t.get("symbol") or "").upper()
+    usd = (t.get("quotes") or {}).get("USD") or {}
+    market_cap = float(usd.get("market_cap") or 0)
+    volume = float(usd.get("volume_24h") or 0)
+    return {
+        "id": t.get("id"),
+        "symbol": symbol,
+        "name": t.get("name", ""),
+        "rank": int(t.get("rank") or 999999),
+        "price": float(usd.get("price") or 0),
+        "market_cap": market_cap,
+        "volume_24h": volume,
+        "change_1h": round(float(usd.get("percent_change_1h") or 0), 2),
+        "change_24h": round(float(usd.get("percent_change_24h") or 0), 2),
+        "change_7d": round(float(usd.get("percent_change_7d") or 0), 2),
+        "change_30d": round(float(usd.get("percent_change_30d") or 0), 2),
+        "volume_to_mcap": round((volume / market_cap) * 100, 2) if market_cap > 0 else 0,
+        "ath": float(usd.get("ath_price") or 0),
+        "ath_change_pct": round(float(usd.get("percent_from_price_ath") or 0), 1),
+        "sparkline_7d": [],
+        "sector": classify_sector(symbol),
+        "image": "",
+        "data_source": "coinpaprika",
+        "data_quality": "live",
+    }
+
+
+async def coinpaprika_market_full(limit: int = 300) -> List[Dict]:
     """
-    Fetch ALL tokens from CoinGecko — up to 250 per call (paginated).
-    Default: 3 pages = top 300 tokens by market cap.
-    This is the equivalent of having a Bloomberg terminal scanning the full market.
+    Fetch the live token universe from CoinPaprika.
+
+    CoinPaprika is the primary source because its public endpoint returns rich
+    ticker rows without an API key and is less fragile for a hackathon demo than
+    heavily rate-limited public market-data tiers.
     """
-    cache_key = f"cg_full_{pages}"
+    cache_key = f"cp_full_{limit}"
     cached = _get_cached(cache_key, "market_overview")
     if cached:
         return cached
 
-    all_tokens = []
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
-            for page in range(1, pages + 1):
-                resp = await client.get(
-                    "https://api.coingecko.com/api/v3/coins/markets",
-                    params={
-                        "vs_currency": "usd",
-                        "order": "market_cap_desc",
-                        "per_page": 100,
-                        "page": page,
-                        "sparkline": True,
-                        "price_change_percentage": "1h,24h,7d,30d",
-                    }
-                )
-                if resp.status_code == 200:
-                    tokens = resp.json()
-                    all_tokens.extend(tokens)
-                elif resp.status_code == 429:
-                    # Rate limited — wait and retry once
-                    await asyncio.sleep(2)
-                    resp = await client.get(
-                        "https://api.coingecko.com/api/v3/coins/markets",
-                        params={
-                            "vs_currency": "usd",
-                            "order": "market_cap_desc",
-                            "per_page": 100,
-                            "page": page,
-                            "sparkline": True,
-                            "price_change_percentage": "1h,24h,7d,30d",
-                        }
-                    )
-                    if resp.status_code == 200:
-                        all_tokens.extend(resp.json())
+            resp = await client.get(f"{COINPAPRIKA_BASE}/tickers", params={"quotes": "USD"})
+            resp.raise_for_status()
+            rows = resp.json()
 
-                # Rate limit: 30 calls/min on free tier
-                if page < pages:
-                    await asyncio.sleep(1.5)
-
+        tokens = [
+            _normalize_coinpaprika_ticker(row)
+            for row in rows
+            if (row.get("quotes") or {}).get("USD", {}).get("market_cap")
+        ]
+        tokens = sorted(tokens, key=lambda x: x.get("rank") or 999999)[:limit]
+        _set_cached(cache_key, tokens)
+        return tokens
     except Exception as e:
-        print(f"CoinGecko market fetch error: {e}")
-
-    # Enrich with sector classification
-    enriched = []
-    for t in all_tokens:
-        symbol = (t.get("symbol") or "").upper()
-        enriched.append({
-            "id": t.get("id"),
-            "symbol": symbol,
-            "name": t.get("name", ""),
-            "rank": t.get("market_cap_rank", 0),
-            "price": t.get("current_price", 0),
-            "market_cap": t.get("market_cap", 0),
-            "volume_24h": t.get("total_volume", 0),
-            "change_1h": round(t.get("price_change_percentage_1h_in_currency") or 0, 2),
-            "change_24h": round(t.get("price_change_percentage_24h") or 0, 2),
-            "change_7d": round(t.get("price_change_percentage_7d_in_currency") or 0, 2),
-            "change_30d": round(t.get("price_change_percentage_30d_in_currency") or 0, 2),
-            "volume_to_mcap": round(
-                (t.get("total_volume", 0) / t.get("market_cap", 1)) * 100, 2
-            ) if t.get("market_cap", 0) > 0 else 0,
-            "ath": t.get("ath", 0),
-            "ath_change_pct": round(t.get("ath_change_percentage") or 0, 1),
-            "sparkline_7d": t.get("sparkline_in_7d", {}).get("price", []),
-            "sector": classify_sector(symbol),
-            "image": t.get("image", ""),
-        })
-
-    _set_cached(cache_key, enriched)
-    return enriched
+        print(f"CoinPaprika market fetch error: {e}")
+        fallback = _fallback_market_tokens(limit)
+        _set_cached(cache_key, fallback)
+        return fallback
 
 
-async def coingecko_global() -> Dict:
+async def coinpaprika_global(tokens: Optional[List[Dict]] = None) -> Dict:
     """Global crypto market statistics"""
-    cached = _get_cached("cg_global", "market_overview")
+    cached = _get_cached("cp_global", "market_overview")
     if cached:
         return cached
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get("https://api.coingecko.com/api/v3/global")
+            resp = await client.get(f"{COINPAPRIKA_BASE}/global")
             if resp.status_code == 200:
-                data = resp.json().get("data", {})
+                data = resp.json()
                 result = {
-                    "total_market_cap": data.get("total_market_cap", {}).get("usd", 0),
-                    "total_volume_24h": data.get("total_volume", {}).get("usd", 0),
-                    "btc_dominance": round(data.get("market_cap_percentage", {}).get("btc", 0), 2),
-                    "eth_dominance": round(data.get("market_cap_percentage", {}).get("eth", 0), 2),
-                    "active_cryptocurrencies": data.get("active_cryptocurrencies", 0),
-                    "market_cap_change_24h": round(data.get("market_cap_change_percentage_24h_usd", 0), 2),
-                    "defi_market_cap": data.get("total_market_cap", {}).get("usd", 0) * 0.04,  # ~4% estimate
+                    "total_market_cap": float(data.get("market_cap_usd") or 0),
+                    "total_volume_24h": float(data.get("volume_24h_usd") or 0),
+                    "btc_dominance": round(float(data.get("bitcoin_dominance_percentage") or 0), 2),
+                    "eth_dominance": round(float(data.get("ethereum_dominance_percentage") or 0), 2),
+                    "active_cryptocurrencies": int(data.get("cryptocurrencies_number") or 0),
+                    "market_cap_change_24h": 0,
+                    "defi_market_cap": 0,
+                    "data_source": "coinpaprika",
                 }
-                _set_cached("cg_global", result)
+                _set_cached("cp_global", result)
                 return result
     except Exception as e:
-        print(f"CoinGecko global error: {e}")
-    return {}
+        print(f"CoinPaprika global error: {e}")
+
+    tokens = tokens or _fallback_market_tokens()
+    total_mcap = sum(t.get("market_cap", 0) for t in tokens)
+    total_vol = sum(t.get("volume_24h", 0) for t in tokens)
+    btc_mcap = next((t.get("market_cap", 0) for t in tokens if t.get("symbol") == "BTC"), 0)
+    eth_mcap = next((t.get("market_cap", 0) for t in tokens if t.get("symbol") == "ETH"), 0)
+    result = {
+        "total_market_cap": total_mcap,
+        "total_volume_24h": total_vol,
+        "btc_dominance": round((btc_mcap / total_mcap) * 100, 2) if total_mcap else 0,
+        "eth_dominance": round((eth_mcap / total_mcap) * 100, 2) if total_mcap else 0,
+        "active_cryptocurrencies": len(tokens),
+        "market_cap_change_24h": _weighted_average(tokens, "change_24h", "market_cap"),
+        "defi_market_cap": sum(t.get("market_cap", 0) for t in tokens if t.get("sector") == "DeFi"),
+        "data_source": "computed_from_coinpaprika" if tokens and tokens[0].get("data_source") == "coinpaprika" else "fallback_snapshot",
+    }
+    _set_cached("cp_global", result)
+    return result
 
 
-async def coingecko_prices_batch(symbols_or_ids: List[str]) -> Dict[str, float]:
+async def coinpaprika_prices_batch(symbols_or_ids: List[str]) -> Dict[str, float]:
     """Efficient batch price fetch for any number of tokens"""
-    # Build reverse map from CoinGecko IDs
-    # This dynamically resolves ANY token
-    from app.services.market_data import COINGECKO_IDS
-
-    ids_map = {}
-    for s in symbols_or_ids:
-        s_upper = s.upper()
-        cg_id = COINGECKO_IDS.get(s_upper)
-        if cg_id:
-            ids_map[cg_id] = s_upper
-        elif s.lower() == s:
-            # Might already be a CoinGecko ID
-            ids_map[s] = s.upper()
-
-    if not ids_map:
+    symbols = [s.upper() for s in symbols_or_ids]
+    if not symbols:
         return {}
 
-    cache_key = f"prices_{'_'.join(sorted(ids_map.keys())[:10])}"
+    cache_key = f"cp_prices_{'_'.join(sorted(symbols)[:10])}"
     cached = _get_cached(cache_key, "prices")
     if cached:
         return cached
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # CoinGecko allows up to 250 IDs per request
-            resp = await client.get(
-                "https://api.coingecko.com/api/v3/simple/price",
-                params={"ids": ",".join(ids_map.keys()), "vs_currencies": "usd"},
-            )
-            data = resp.json() if resp.status_code == 200 else {}
+    tokens = await coinpaprika_market_full(limit=500)
+    by_symbol = {t.get("symbol"): float(t.get("price") or 0) for t in tokens}
+    prices = {symbol: by_symbol.get(symbol, 0) for symbol in symbols}
+    _set_cached(cache_key, prices)
+    return prices
 
-        prices = {}
-        for cg_id, symbol in ids_map.items():
-            prices[symbol] = data.get(cg_id, {}).get("usd", 0)
 
-        _set_cached(cache_key, prices)
-        return prices
-    except Exception as e:
-        print(f"Batch price error: {e}")
-        return {}
+def _weighted_average(tokens: List[Dict], value_key: str, weight_key: str) -> float:
+    total_weight = sum(max(float(t.get(weight_key) or 0), 0) for t in tokens)
+    if total_weight <= 0:
+        values = [float(t.get(value_key) or 0) for t in tokens]
+        return round(sum(values) / len(values), 2) if values else 0
+    weighted = sum(float(t.get(value_key) or 0) * max(float(t.get(weight_key) or 0), 0) for t in tokens)
+    return round(weighted / total_weight, 2)
+
+
+# Backward-compatible aliases used by older imports in the rest of the codebase.
+async def coingecko_market_full(pages: int = 3) -> List[Dict]:
+    return await coinpaprika_market_full(limit=max(100, pages * 100))
+
+
+async def coingecko_global() -> Dict:
+    return await coinpaprika_global()
+
+
+async def coingecko_prices_batch(symbols_or_ids: List[str]) -> Dict[str, float]:
+    return await coinpaprika_prices_batch(symbols_or_ids)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -450,8 +483,8 @@ async def get_full_market_intelligence() -> Dict:
         return cached
 
     # Fetch all data sources in parallel
-    tokens_task = coingecko_market_full(pages=3)
-    global_task = coingecko_global()
+    tokens_task = coinpaprika_market_full(limit=300)
+    global_task = coinpaprika_global()
     fear_task = fetch_fear_greed()
     tvl_task = defillama_tvl_overview()
 
@@ -523,6 +556,12 @@ async def get_full_market_intelligence() -> Dict:
         "top_losers": top_losers,
         "volume_anomalies": anomalies,
         "event_intelligence": event_summary,
+        "data_quality": {
+            "market_data_source": tokens[0].get("data_source", "unknown") if tokens else "unavailable",
+            "market_data_quality": tokens[0].get("data_quality", "unknown") if tokens else "unavailable",
+            "primary_price_provider": "CoinPaprika",
+            "notes": "CoinPaprika powers market cap, volume, and percentage changes. DeFiLlama powers TVL/yield/stablecoin data. Alternative.me powers Fear & Greed.",
+        },
     }
 
     _set_cached("full_intel", intel)

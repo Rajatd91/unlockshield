@@ -280,6 +280,8 @@ const fmt = v => {
   if (v >= 1e3) return `$${(v/1e3).toFixed(1)}K`
   return `$${v.toFixed(0)}`
 }
+const num = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback
+const pct = (v, digits = 1) => `${num(v).toFixed(digits)}%`
 const fmtD = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
 const daysUntil = d => Math.ceil((new Date(d)-new Date())/864e5)
 const clr = v => v>0?'var(--green)':v<0?'var(--red)':'var(--text3)'
@@ -287,9 +289,9 @@ const riskCls = s => s>=80?'r-c':s>=55?'r-h':s>=35?'r-m':'r-l'
 const riskLabel = s => s>=80?'CRITICAL':s>=55?'HIGH':s>=35?'MEDIUM':'LOW'
 const stratCls = s => ({FULL_EXIT:'s-exit',REDUCE_POSITION:'s-reduce',SHORT_HEDGE:'s-hedge',OPTIONS_PUT:'s-put',DCA_EXIT:'s-dca'})[s]||''
 const barClr = s => s>=70?'var(--red)':s>=45?'var(--yellow)':'var(--green)'
-const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Meme:'#ec4899',Other:'#6b7280'}
+const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Altcoin:'#ec4899',Other:'#6b7280'}
 
-/* ═══ Sparkline Mini Chart (7d from CoinGecko sparkline data) ═══ */
+/* ═══ Sparkline Mini Chart ═══ */
 function Sparkline7d({ data, width = 80, height = 28, color }) {
   if (!data || data.length < 5) return null
   // Sample down to ~20 points for performance
@@ -471,9 +473,9 @@ function RegimeModal({ regime, onClose }) {
 
         {/* Data Source Attribution */}
         <div style={{marginTop:14,padding:'10px 12px',background:'var(--bg3)',borderRadius:'var(--r3)',fontSize:10,color:'var(--text3)',lineHeight:1.6}}>
-          <strong>Data Sources:</strong> Market breadth from CoinGecko top 100 tokens • Fear & Greed from Alternative.me API •
-          BTC dominance from CoinGecko global • Market momentum from 24h total market cap change •
-          Meme coin strength from sector average performance
+          <strong>Data Sources:</strong> Market breadth from CoinPaprika top 100 tokens • Fear & Greed from Alternative.me API •
+          BTC dominance from CoinPaprika global/derived market cap • Market momentum from 24h total market cap change •
+          Altcoin strength from non-BTC/ETH sector performance
         </div>
       </div>
     </>
@@ -522,14 +524,14 @@ function TokenPanel({token,analysis,unlockInfo,onClose}) {
                 <span style={{fontSize:28,fontWeight:800}}>${price>=1?price.toFixed(2):price.toFixed(6)}</span>
                 <span style={{fontSize:14,fontWeight:700,color:clr(c24)}}>{c24>0?'+':''}{c24}%</span>
               </div>
-              {/* 7-day sparkline from CoinGecko data */}
+              {/* 7-day sparkline from provider data */}
               {sparkline.length > 5 ? (
                 <div style={{marginBottom:10,background:'var(--bg3)',borderRadius:'var(--r3)',padding:10}}>
-                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>7-Day Price Chart (CoinGecko)</div>
+                  <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,marginBottom:4,textTransform:'uppercase'}}>7-Day Price Trend</div>
                   <Sparkline7d data={sparkline} width={440} height={60}/>
                 </div>
               ) : (
-                /* Fallback sparkline from price changes */
+                /* Provider has no intraday sparkline: draw a small trend proxy from reported 24h/7d/30d changes. */
                 <svg width="100%" height="40" viewBox="0 0 200 40" preserveAspectRatio="none" style={{marginBottom:8}}>
                   {[100+c30,100+(c30+c7)/2,100+c7,(100+c7+c24)/2,100+c24].map((v,i,arr)=>{
                     if(i===0) return null
@@ -565,7 +567,7 @@ function TokenPanel({token,analysis,unlockInfo,onClose}) {
                 </div>
               </div>
               {vol>0&&mcap>0&&<div style={{fontSize:11,color:'var(--text3)',marginTop:6}}>Vol/MCap ratio: <strong style={{color:vol/mcap*100>12?'var(--red)':'var(--text2)'}}>{(vol/mcap*100).toFixed(1)}%</strong>{vol/mcap*100>12&&<span style={{color:'var(--red)',marginLeft:4}}>⚠ Abnormal volume</span>}</div>}
-              <div style={{fontSize:10,color:'var(--text3)',marginTop:4}}>Data: CoinGecko API (real-time)</div>
+              <div style={{fontSize:10,color:'var(--text3)',marginTop:4}}>Data: CoinPaprika market API</div>
             </div>
           )}
 
@@ -722,8 +724,9 @@ function App() {
       const p = stressParams
       const res = await fetch(`${API}/api/stress/run/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}&lp_range=${p.lp_range}&n_paths=2000`)
       const data = await res.json()
+      if(!res.ok || data?.detail || data?.error) throw new Error(data?.detail || data?.error || 'Stress engine returned an error')
       setStressResult(data)
-      toast('Stress Test Complete',`${stressToken}: VaR(95%)=${data?.scenarios?.base_case?.var_95}%`,'g')
+      toast('Stress Test Complete',`${stressToken}: VaR(95%)=${pct(data?.scenarios?.base_case?.var_95)}`,'g')
     } catch(e) { toast('Stress Test Error',e.message,'r') }
     setStressLoading(false)
   }
@@ -735,7 +738,8 @@ function App() {
       const p = stressParams
       const res = await fetch(`${API}/api/predictions/create/${stressToken}?unlock_pct=${p.unlock_pct}&unlock_days=${p.unlock_days}&recipient=${encodeURIComponent(p.recipient)}&is_cliff=${p.is_cliff}`,{method:'POST'})
       const data = await res.json()
-      toast('Prediction Committed',`${stressToken}: ${data?.predicted_impact}% impact, hash: ${data?.commit_hash?.slice(0,12)}...`,'g')
+      if(!res.ok || data?.detail || data?.error) throw new Error(data?.detail || data?.error || 'Prediction oracle returned an error')
+      toast('Prediction Committed',`${stressToken}: ${pct(data?.predicted_impact)} impact, hash: ${data?.commit_hash?.slice(0,12)}...`,'g')
       fetchPredictions()
     } catch(e) { toast('Prediction Error',e.message,'r') }
     setPredLoading(false)
@@ -831,7 +835,7 @@ function App() {
             </div>
             <div className="tk-hint">How is this calculated? →</div>
           </div>}
-          <div className="tk" onClick={()=>{setTab('market');toast('Tokens Tracked',`${market.tokens_count||0} tokens from CoinGecko top 300`,'g')}}>
+          <div className="tk" onClick={()=>{setTab('market');toast('Tokens Tracked',`${market.tokens_count||0} tokens from CoinPaprika market universe`,'g')}}>
             <div className="tk-l">Tokens Tracked</div>
             <div className="tk-v" style={{color:'var(--green)'}}>{market.tokens_count||'300+'}</div>
             <div className="tk-hint">View All →</div>
@@ -886,7 +890,7 @@ function App() {
 
       {/* TABS */}
       <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'100+'})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'portfolio',i:<PieChart size={13}/>,l:'Portfolio'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'portfolio',i:<PieChart size={13}/>,l:'Portfolio'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -1022,7 +1026,7 @@ function App() {
           <div className="sec">
             <div className="sh">
               <h2><Globe size={16} color="var(--cyan)"/> Market Data <span className="cnt">{filteredTokens.length}</span></h2>
-              <div style={{fontSize:10,color:'var(--text3)'}}>Source: CoinGecko API • Page {marketPage}/{totalPages||1}</div>
+              <div style={{fontSize:10,color:'var(--text3)'}}>Source: CoinPaprika API • Page {marketPage}/{totalPages||1}</div>
             </div>
             <div className="tw">
               <table><thead><tr><th>#</th><th>Token</th><th>Price</th><th>24h</th><th>7d</th><th>7d Chart</th><th>Market Cap</th><th>Volume</th><th>Sector</th></tr></thead><tbody>
@@ -1083,10 +1087,10 @@ function App() {
 
           {/* Data Source Attribution */}
           <div style={{textAlign:'center',padding:'12px',fontSize:10,color:'var(--text3)',background:'var(--bg3)',borderRadius:'var(--r)',marginTop:8}}>
-            All market data powered by <strong>CoinGecko API</strong> (top {market?.tokens_count || 300} by market cap) •
+            Market data powered by <strong>CoinPaprika API</strong> (top {market?.tokens_count || 300} by market cap) •
             Fear & Greed from <strong>Alternative.me</strong> •
             TVL from <strong>DeFiLlama</strong> •
-            Updated every 2 minutes
+            Updated every 5 minutes
           </div>
         </div>
       )}
@@ -1139,14 +1143,14 @@ function App() {
             <>
               {/* Risk Overview */}
               <div className="sec">
-                <div className="sh"><h2><AlertTriangle size={16} color="var(--red)"/> Risk Metrics — {stressResult.token}</h2><span className={`rgm rgm-${(stressResult.regime_detected||'sideways').toLowerCase()}`}>{stressResult.regime_detected} ({(stressResult.regime_confidence*100).toFixed(0)}%)</span></div>
+                <div className="sh"><h2><AlertTriangle size={16} color="var(--red)"/> Risk Metrics — {stressResult.token}</h2><span className={`rgm rgm-${(stressResult.regime_detected||'sideways').toLowerCase()}`}>{stressResult.regime_detected || 'SIDEWAYS'} ({pct(num(stressResult.regime_confidence,0)*100,0)})</span></div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:10,marginBottom:14}}>
                   {[
-                    {l:'VaR (95%)',v:`${stressResult.scenarios?.base_case?.var_95}%`,c:stressResult.scenarios?.base_case?.var_95<-15?'var(--red)':'var(--yellow)'},
-                    {l:'CVaR (95%)',v:`${stressResult.scenarios?.base_case?.cvar_95}%`,c:'var(--red)'},
-                    {l:'P(Loss>10%)',v:`${(stressResult.scenarios?.base_case?.prob_loss_gt_10pct*100).toFixed(1)}%`,c:stressResult.scenarios?.base_case?.prob_loss_gt_10pct>0.5?'var(--red)':'var(--yellow)'},
-                    {l:'Max Drawdown',v:`${stressResult.scenarios?.base_case?.max_drawdown_worst}%`,c:'var(--red)'},
-                    {l:'Mean Return',v:`${stressResult.scenarios?.base_case?.mean_return}%`,c:stressResult.scenarios?.base_case?.mean_return<0?'var(--red)':'var(--green)'},
+                    {l:'VaR (95%)',v:pct(stressResult.scenarios?.base_case?.var_95),c:num(stressResult.scenarios?.base_case?.var_95)<-15?'var(--red)':'var(--yellow)'},
+                    {l:'CVaR (95%)',v:pct(stressResult.scenarios?.base_case?.cvar_95),c:'var(--red)'},
+                    {l:'P(Loss>10%)',v:pct(num(stressResult.scenarios?.base_case?.prob_loss_gt_10pct)*100),c:num(stressResult.scenarios?.base_case?.prob_loss_gt_10pct)>0.5?'var(--red)':'var(--yellow)'},
+                    {l:'Max Drawdown',v:pct(stressResult.scenarios?.base_case?.max_drawdown_worst),c:'var(--red)'},
+                    {l:'Mean Return',v:pct(stressResult.scenarios?.base_case?.mean_return),c:num(stressResult.scenarios?.base_case?.mean_return)<0?'var(--red)':'var(--green)'},
                   ].map((m,i)=>(
                     <div key={i} className="bts"><div className="bv" style={{color:m.c,fontSize:18}}>{m.v}</div><div className="bl">{m.l}</div></div>
                   ))}
@@ -1156,15 +1160,15 @@ function App() {
               {/* Scenario Comparison */}
               <div className="sec">
                 <div className="sh"><h2><BarChart3 size={16} color="var(--blue)"/> Scenario Analysis (2000 Monte Carlo Paths)</h2></div>
-                <div className="tw"><table><thead><tr><th>Scenario</th><th>VaR(95%)</th><th>CVaR(95%)</th><th>P(Loss>10%)</th><th>Mean Return</th><th>Skewness</th><th>Kurtosis</th></tr></thead><tbody>
+                <div className="tw"><table><thead><tr><th>Scenario</th><th>VaR(95%)</th><th>CVaR(95%)</th><th>P(Loss&gt;10%)</th><th>Mean Return</th><th>Skewness</th><th>Kurtosis</th></tr></thead><tbody>
                   {Object.entries(stressResult.scenarios||{}).map(([k,v])=>(
                     <tr key={k}><td style={{fontWeight:600}}>{k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</td>
-                    <td style={{color:v.var_95<-15?'var(--red)':'var(--yellow)',fontWeight:700}}>{v.var_95}%</td>
-                    <td style={{color:'var(--red)',fontWeight:700}}>{v.cvar_95}%</td>
-                    <td>{(v.prob_loss_gt_10pct*100).toFixed(1)}%</td>
-                    <td style={{color:v.mean_return<0?'var(--red)':'var(--green)',fontWeight:600}}>{v.mean_return}%</td>
-                    <td>{v.skewness}</td>
-                    <td>{v.kurtosis}</td></tr>
+                    <td style={{color:num(v.var_95)<-15?'var(--red)':'var(--yellow)',fontWeight:700}}>{pct(v.var_95)}</td>
+                    <td style={{color:'var(--red)',fontWeight:700}}>{pct(v.cvar_95)}</td>
+                    <td>{pct(num(v.prob_loss_gt_10pct)*100)}</td>
+                    <td style={{color:num(v.mean_return)<0?'var(--red)':'var(--green)',fontWeight:600}}>{pct(v.mean_return)}</td>
+                    <td>{num(v.skewness).toFixed(2)}</td>
+                    <td>{num(v.kurtosis).toFixed(2)}</td></tr>
                   ))}
                 </tbody></table></div>
               </div>
@@ -1174,10 +1178,10 @@ function App() {
                 <div className="sec">
                   <div className="sh"><h2><Lock size={16} color="var(--yellow)"/> Unlock Impact Isolation</h2><span className={`rsk ${stressResult.unlock_impact_analysis.unlock_is_material?'r-c':'r-l'}`}>{stressResult.unlock_impact_analysis.unlock_is_material?'MATERIAL':'NON-MATERIAL'}</span></div>
                   <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{stressResult.unlock_impact_analysis.additional_var_95}%</div><div className="bl">Additional VaR(95%)</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{stressResult.unlock_impact_analysis.additional_cvar_95}%</div><div className="bl">Additional CVaR</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--yellow)'}}>{stressResult.unlock_impact_analysis.additional_il}%</div><div className="bl">Additional IL</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{(stressResult.unlock_impact_analysis.prob_increase_gt10*100).toFixed(1)}%</div><div className="bl">P(&gt;10%) Increase</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{pct(stressResult.unlock_impact_analysis.additional_var_95)}</div><div className="bl">Additional VaR(95%)</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{pct(stressResult.unlock_impact_analysis.additional_cvar_95)}</div><div className="bl">Additional CVaR</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--yellow)'}}>{pct(stressResult.unlock_impact_analysis.additional_il)}</div><div className="bl">Additional IL</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)'}}>{pct(num(stressResult.unlock_impact_analysis.prob_increase_gt10)*100)}</div><div className="bl">P(&gt;10%) Increase</div></div>
                   </div>
                 </div>
               )}
@@ -1189,9 +1193,9 @@ function App() {
                   <div className="tw"><table><thead><tr><th>Range Width</th><th>Mean IL</th><th>IL (95th pct)</th><th>Max IL</th></tr></thead><tbody>
                     {Object.entries(stressResult.lp_stress_test).filter(([k])=>k!=='conclusion').map(([k,v])=>(
                       <tr key={k}><td style={{fontWeight:600}}>{v.range}</td>
-                      <td>{v.il_mean}%</td>
-                      <td style={{color:v.il_95th>5?'var(--red)':'var(--yellow)',fontWeight:600}}>{v.il_95th}%</td>
-                      <td style={{color:'var(--red)',fontWeight:700}}>{v.il_max}%</td></tr>
+                      <td>{pct(v.il_mean)}</td>
+                      <td style={{color:num(v.il_95th)>5?'var(--red)':'var(--yellow)',fontWeight:600}}>{pct(v.il_95th)}</td>
+                      <td style={{color:'var(--red)',fontWeight:700}}>{pct(v.il_max)}</td></tr>
                     ))}
                   </tbody></table></div>
                   <div className="info-box" style={{borderColor:'var(--purple)',background:'var(--purple-bg)',marginTop:10,fontSize:11}}>
@@ -1207,7 +1211,7 @@ function App() {
                   <div className="crd" style={{cursor:'default',borderLeft:`3px solid ${stressResult.hedge_recommendation.risk_tier==='CRITICAL'?'var(--red)':stressResult.hedge_recommendation.risk_tier==='HIGH'?'var(--yellow)':'var(--green)'}`}}>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:16,marginBottom:12}}>
                       <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Action</div><div style={{fontSize:16,fontWeight:800}}>{stressResult.hedge_recommendation.recommended_action?.replace(/_/g,' ')}</div></div>
-                      <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Hedge Size</div><div style={{fontSize:16,fontWeight:800,color:'var(--green)'}}>{stressResult.hedge_recommendation.hedge_size_pct}%</div></div>
+                      <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Hedge Size</div><div style={{fontSize:16,fontWeight:800,color:'var(--green)'}}>{pct(stressResult.hedge_recommendation.hedge_size_pct)}</div></div>
                       <div><div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase',marginBottom:4}}>Urgency</div><div style={{fontSize:16,fontWeight:800,color:stressResult.hedge_recommendation.urgency==='IMMEDIATE'?'var(--red)':'var(--yellow)'}}>{stressResult.hedge_recommendation.urgency}</div></div>
                     </div>
                     <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>{stressResult.hedge_recommendation.rationale}</div>
@@ -1379,7 +1383,7 @@ function App() {
           <div className="sec">
             <div className="sh"><h2><Cpu size={16} color="var(--cyan)"/> Agent Architecture</h2></div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-              {[{i:<Eye size={20}/>,t:'Monitor',d:'300+ tokens via CoinGecko, 40+ unlocks from Tokenomist',c:'var(--yellow)',bg:'var(--yellow-bg)'},{i:<Cpu size={20}/>,t:'Analyze',d:'Claude Sonnet 4 with 5-factor risk model',c:'var(--purple)',bg:'var(--purple-bg)'},{i:<Shield size={20}/>,t:'Protect',d:'6 hedge strategies with execution plans',c:'var(--green)',bg:'var(--green-bg)'},{i:<Database size={20}/>,t:'Attest',d:'Immutable records on Kite blockchain',c:'var(--green)',bg:'var(--green-bg2)'},{i:<BarChart3 size={20}/>,t:'Backtest',d:'Validated on 13 real events',c:'var(--cyan)',bg:'var(--cyan-bg)'},{i:<Globe size={20}/>,t:'Intelligence',d:'Market regime, Fear & Greed, TVL, anomalies',c:'var(--red)',bg:'var(--red-bg)'}].map((c,i)=>(
+              {[{i:<Eye size={20}/>,t:'Monitor',d:'300+ tokens via CoinPaprika, 40+ unlocks from Tokenomist',c:'var(--yellow)',bg:'var(--yellow-bg)'},{i:<Cpu size={20}/>,t:'Analyze',d:'Claude Sonnet 4 with 5-factor risk model',c:'var(--purple)',bg:'var(--purple-bg)'},{i:<Shield size={20}/>,t:'Protect',d:'6 hedge strategies with execution plans',c:'var(--green)',bg:'var(--green-bg)'},{i:<Database size={20}/>,t:'Attest',d:'Immutable records on Kite blockchain',c:'var(--green)',bg:'var(--green-bg2)'},{i:<BarChart3 size={20}/>,t:'Backtest',d:'Validated on 13 real events',c:'var(--cyan)',bg:'var(--cyan-bg)'},{i:<Globe size={20}/>,t:'Intelligence',d:'Market regime, Fear & Greed, TVL, anomalies',c:'var(--red)',bg:'var(--red-bg)'}].map((c,i)=>(
                 <div className="crd" key={i} style={{textAlign:'center',padding:18,cursor:'default'}}>
                   <div style={{width:42,height:42,borderRadius:10,margin:'0 auto 8px',background:c.bg,display:'flex',alignItems:'center',justifyContent:'center',color:c.c}}>{c.i}</div>
                   <div style={{fontWeight:700,fontSize:13,marginBottom:4}}>{c.t}</div>

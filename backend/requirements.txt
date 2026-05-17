@@ -5,7 +5,7 @@
 fastapi>=0.104.0
 uvicorn>=0.24.0
 
-# HTTP client (CoinGecko, Tokenomist, DeFiLlama, Fear&Greed APIs)
+# HTTP client (CoinPaprika, Tokenomist, DeFiLlama, Fear&Greed APIs)
 httpx>=0.25.0
 
 # Blockchain (Kite AI EVM chain — attestations)

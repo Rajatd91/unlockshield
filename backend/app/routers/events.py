@@ -141,7 +141,7 @@ async def get_liquidation_data_endpoint():
 async def get_news():
     """
     Crypto news feed with regulatory/governance classification.
-    From MarketAux with CoinGecko trending fallback.
+    From MarketAux with CoinPaprika market-mover fallback.
     """
     articles = await fetch_crypto_news()
     regulatory = [a for a in articles if a.get("category") == "regulatory"]
