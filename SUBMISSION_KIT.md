@@ -192,8 +192,8 @@ https://unlockshield.vercel.app
 
 ### Smart Contract Address (after deployment)
 ```
-[YOUR DEPLOYED CONTRACT ADDRESS HERE]
-View on KiteScan: https://testnet.kitescan.ai/address/YOUR_ADDRESS
+0xD2d642Ea44973d90Bb0a6f403e8A4815020Fdd79
+View on KiteScan: https://testnet.kitescan.ai/address/0xD2d642Ea44973d90Bb0a6f403e8A4815020Fdd79
 ```
 
 ### Video Demo

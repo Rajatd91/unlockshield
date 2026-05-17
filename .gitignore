@@ -25,3 +25,10 @@ npm-debug.log*
 # Build and deployment noise
 coverage/
 *.log
+
+# Hardhat / Solidity build artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain/
+contracts/typechain-types/
+

@@ -14,7 +14,7 @@
 | **Backend API** | https://unlockshield-api.onrender.com |
 | **API Docs (Swagger)** | https://unlockshield-api.onrender.com/docs |
 | **GitHub Repository** | https://github.com/Rajatd91/unlockshield |
-| **Smart Contract on KiteScan** | _Updated after deployment — see `CONTRACT_ADDRESS` in repo_ |
+| **Smart Contract on KiteScan** | https://testnet.kitescan.ai/address/0xD2d642Ea44973d90Bb0a6f403e8A4815020Fdd79 |
 | **Kite Testnet** | Chain ID 2368 · RPC `https://rpc-testnet.gokite.ai/` |
 
 ---
