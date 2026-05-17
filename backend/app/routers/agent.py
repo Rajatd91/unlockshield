@@ -5,6 +5,7 @@ The core brain — scans markets, analyzes risk, executes hedges, attests on-cha
 One API call triggers the entire autonomous pipeline.
 """
 import os
+from typing import Dict
 from fastapi import APIRouter
 from app.services.unlock_fetcher import fetch_upcoming_unlocks
 from app.services.risk_analyzer import analyze_unlock_risk
@@ -188,6 +189,60 @@ async def get_agent_activity(limit: int = 50):
     return {
         "loop": loop_status(),
         "events": activity_log.snapshot(limit=max(1, min(int(limit), 200))),
+    }
+
+
+@router.get("/polymarket")
+async def get_polymarket_signal(limit: int = 20):
+    """
+    Live crypto prediction markets from Polymarket. Used as a 12th signal
+    in composite risk scoring — real-money crowd-funded conviction.
+    """
+    from app.services.polymarket_service import fetch_active_crypto_markets, market_tail_risk_score
+    markets = await fetch_active_crypto_markets(limit=limit)
+    summary = market_tail_risk_score(markets)
+    return {"summary": summary, "markets": markets, "count": len(markets)}
+
+
+@router.get("/portfolio")
+async def get_portfolio_view():
+    """
+    Multi-tier portfolio view: large / mid / small cap candidate universe
+    + current open positions per tier. The agent loop's last cycle output.
+    """
+    from app.services.portfolio_manager import LARGE_CAP_TICKERS, MID_CAP_TICKERS, TIERS, _tier_for_token
+    from app.services.agent_loop import position_state
+    portfolio = position_state.all()
+    by_tier: Dict[str, Dict] = {
+        t: {"label": cfg.name, "config": {
+            "action_threshold": cfg.action_threshold,
+            "hedge_min_risk": cfg.hedge_min_risk,
+            "base_hedge_usd": cfg.base_hedge_usd,
+            "max_position_usd": cfg.max_position_usd,
+            "description": cfg.description,
+        }, "positions": []}
+        for t, cfg in TIERS.items()
+    }
+    for tk, p in portfolio.items():
+        tier = _tier_for_token(tk)
+        by_tier.setdefault(tier, {"label": tier.title(), "config": {}, "positions": []})
+        by_tier[tier]["positions"].append({
+            "token": tk,
+            "hedged_usd": p["hedged_usd"],
+            "actions_taken": p["actions_taken"],
+            "last_predicted_pct": p.get("last_predicted"),
+        })
+    return {
+        "tiers": by_tier,
+        "watchlists": {
+            "large_cap": LARGE_CAP_TICKERS,
+            "mid_cap": MID_CAP_TICKERS[:20],
+        },
+        "summary": {
+            "total_positions": len(portfolio),
+            "total_hedged_usd": sum(p["hedged_usd"] for p in portfolio.values()),
+            "tier_counts": {t: len(d["positions"]) for t, d in by_tier.items()},
+        },
     }
 
 

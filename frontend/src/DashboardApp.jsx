@@ -1193,6 +1193,8 @@ function App() {
   const [agentActivity,setAgentActivity] = useState({loop:null,events:[]})
   const [treasuryData,setTreasuryData] = useState(null)
   const [agentMetrics,setAgentMetrics] = useState(null)
+  const [agentPortfolio,setAgentPortfolio] = useState(null)
+  const [agentPolymarket,setAgentPolymarket] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1412,15 +1414,19 @@ function App() {
     let cancelled = false
     const pull = async () => {
       try {
-        const [a,t,m] = await Promise.all([
+        const [a,t,m,p,pm] = await Promise.all([
           fetch(`${API}/api/agent/activity?limit=80`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/treasury`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/metrics`).then(r=>r.json()).catch(()=>null),
+          fetch(`${API}/api/agent/portfolio`).then(r=>r.json()).catch(()=>null),
+          fetch(`${API}/api/agent/polymarket?limit=8`).then(r=>r.json()).catch(()=>null),
         ])
         if(cancelled) return
         if(a) setAgentActivity(a)
         if(t) setTreasuryData(t)
         if(m) setAgentMetrics(m)
+        if(p) setAgentPortfolio(p)
+        if(pm) setAgentPolymarket(pm)
       } catch(e) { /* ignore */ }
     }
     pull()
@@ -2328,6 +2334,8 @@ function App() {
           scan_summary:<Layers size={13} color="var(--cyan)"/>,
           scan:<Activity size={13} color="var(--blue)"/>,
           signal_breakdown:<BarChart3 size={13} color="var(--purple)"/>,
+          stress_run:<Zap size={13} color="var(--purple)"/>,
+          prediction_market:<Globe size={13} color="var(--cyan)"/>,
           reasoning:<Cpu size={13} color="var(--purple)"/>,
           correlation:<BarChart3 size={13} color="var(--yellow)"/>,
           commit:<Lock size={13} color="var(--purple)"/>,
@@ -2423,6 +2431,93 @@ function App() {
 npx hardhat run deploy_treasury.js --network kiteTestnet
 # then set TREASURY_ADDRESS and USDC_ADDRESS on Render`}</pre>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Multi-tier portfolio universe */}
+          {agentPortfolio && (
+            <div className="sec">
+              <div className="sh">
+                <h2><Layers size={16} color="var(--cyan)"/> Multi-Tier Portfolio Universe</h2>
+                <span style={{fontSize:11,color:'var(--text3)'}}>Large · Mid · Small cap — each tier has its own action threshold and sizing</span>
+              </div>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:14}}>
+                {['large','mid','small'].map(tierKey=>{
+                  const tier = agentPortfolio.tiers?.[tierKey]
+                  if(!tier) return null
+                  const cfg = tier.config || {}
+                  const tierClr = {large:'var(--blue)',mid:'var(--green)',small:'var(--yellow)'}[tierKey]
+                  return (
+                    <div key={tierKey} className="crd" style={{cursor:'default',borderLeft:`3px solid ${tierClr}`,padding:14}}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+                        <div style={{fontSize:13,fontWeight:800,color:tierClr}}>{tier.label}</div>
+                        <span style={{fontSize:10,color:'var(--text3)',fontWeight:600,background:'var(--bg3)',padding:'2px 8px',borderRadius:6}}>{tier.positions?.length||0} open</span>
+                      </div>
+                      <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5,marginBottom:10}}>{cfg.description}</div>
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+                        <div style={{background:'var(--bg3)',borderRadius:6,padding:'6px 8px'}}>
+                          <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Action ≥</div>
+                          <div style={{fontSize:13,fontWeight:700}}>{cfg.action_threshold}</div>
+                        </div>
+                        <div style={{background:'var(--bg3)',borderRadius:6,padding:'6px 8px'}}>
+                          <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Hedge ≥</div>
+                          <div style={{fontSize:13,fontWeight:700}}>{cfg.hedge_min_risk}</div>
+                        </div>
+                        <div style={{background:'var(--bg3)',borderRadius:6,padding:'6px 8px'}}>
+                          <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Base</div>
+                          <div style={{fontSize:13,fontWeight:700}}>${cfg.base_hedge_usd}</div>
+                        </div>
+                        <div style={{background:'var(--bg3)',borderRadius:6,padding:'6px 8px'}}>
+                          <div style={{fontSize:9,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>Cap</div>
+                          <div style={{fontSize:13,fontWeight:700}}>${cfg.max_position_usd}</div>
+                        </div>
+                      </div>
+                      {tier.positions && tier.positions.length>0 ? (
+                        <div style={{display:'flex',flexDirection:'column',gap:4}}>
+                          {tier.positions.slice(0,5).map(p=>(
+                            <div key={p.token} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'4px 8px',background:'var(--bg3)',borderRadius:4}}>
+                              <span style={{fontWeight:700}}>{p.token}</span>
+                              <span style={{color:'var(--green)',fontWeight:700}}>${Math.round(p.hedged_usd)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{fontSize:10,color:'var(--text3)',padding:'8px 0',textAlign:'center',fontStyle:'italic'}}>No open positions in this tier</div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Polymarket signal */}
+          {agentPolymarket && agentPolymarket.count > 0 && (
+            <div className="sec">
+              <div className="sh">
+                <h2><Globe size={16} color="var(--cyan)"/> Polymarket · real-money prediction markets</h2>
+                <span style={{fontSize:11,color:'var(--text3)'}}>12th signal — crowd-funded conviction (USDC volume weighted)</span>
+              </div>
+              <div className="crd" style={{cursor:'default',padding:14,borderLeft:'3px solid var(--cyan)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase'}}>Tail-Risk Score</div>
+                    <div style={{fontSize:22,fontWeight:900,color:agentPolymarket.summary?.score>=60?'var(--red)':agentPolymarket.summary?.score>=40?'var(--yellow)':'var(--green)'}}>{agentPolymarket.summary?.score||'—'}/100</div>
+                  </div>
+                  <div style={{fontSize:11,color:'var(--text3)'}}>{agentPolymarket.count} active crypto markets</div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {(agentPolymarket.markets||[]).slice(0,5).map((m,i)=>(
+                    <a key={i} href={m.url} target="_blank" rel="noopener" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',background:'var(--bg3)',borderRadius:6,textDecoration:'none',color:'inherit'}}>
+                      <div style={{fontSize:12,flex:1,marginRight:10}}>{m.question.length>90?m.question.slice(0,90)+'…':m.question}</div>
+                      <div style={{display:'flex',gap:10,alignItems:'center'}}>
+                        <span style={{fontSize:11,color:'var(--text3)'}}>${(m.volume_usd/1000).toFixed(0)}K vol</span>
+                        <span style={{fontWeight:700,fontSize:13,color:m.implied_pct>=70?'var(--green)':m.implied_pct<=30?'var(--red)':'var(--yellow)',minWidth:50,textAlign:'right'}}>{m.implied_pct}%</span>
+                      </div>
+                    </a>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2526,6 +2621,34 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
                       ))}
                     </div>
                   </details>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* Latest RS-GARCH stress engine run */}
+          {(() => {
+            const lastStress = events.find(e => e.kind === 'stress_run')
+            if(!lastStress?.detail) return null
+            const d = lastStress.detail
+            return (
+              <div className="sec">
+                <div className="sh">
+                  <h2><Zap size={16} color="var(--purple)"/> Latest RS-GARCH Monte Carlo · {d.token}</h2>
+                  <span style={{fontSize:11,color:'var(--text3)'}}>Real stress engine output · 1,000 simulated paths</span>
+                </div>
+                <div className="crd" style={{cursor:'default',padding:14,borderLeft:'3px solid var(--purple)'}}>
+                  <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5,marginBottom:10}}>The agent triggers the full RS-GARCH stress engine (Bollerslev 1986, Merton 1976 jump-diffusion, Hamilton 1989 regime-switching) when composite risk ≥ 35. Below: actual simulation output, not a formula approximation.</div>
+                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.var_95?.toFixed(1)}%</div><div className="bl">VaR(95)</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.cvar_95?.toFixed(1)}%</div><div className="bl">CVaR(95)</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{d.median_return?.toFixed(1)}%</div><div className="bl">Median Return</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.max_drawdown_worst?.toFixed(1)}%</div><div className="bl">Worst Drawdown</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{((d.prob_loss_gt_10pct||0)*100).toFixed(0)}%</div><div className="bl">P(loss &gt; 10%)</div></div>
+                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{((d.prob_loss_gt_20pct||0)*100).toFixed(0)}%</div><div className="bl">P(loss &gt; 20%)</div></div>
+                    <div className="bts"><div className="bv" style={{fontSize:16}}>{d.regime}</div><div className="bl">Detected Regime</div></div>
+                    <div className="bts"><div className="bv" style={{fontSize:16}}>{d.n_paths?.toLocaleString()}</div><div className="bl">Monte Carlo Paths</div></div>
+                  </div>
                 </div>
               </div>
             )

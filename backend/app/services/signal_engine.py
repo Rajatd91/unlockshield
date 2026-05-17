@@ -34,17 +34,18 @@ from typing import Dict, List, Optional, Tuple
 # event risk. Unlock pressure dominates because it's the most directly
 # linked to forward price impact (cf. our 13-event backtest).
 FACTOR_WEIGHTS: Dict[str, float] = {
-    "unlock_pressure":    0.28,
-    "whale_outflow":      0.12,
-    "dex_anomaly":        0.10,
-    "stablecoin_stress":  0.10,
-    "lending_risk":       0.08,
+    "unlock_pressure":    0.25,
+    "whale_outflow":      0.11,
+    "dex_anomaly":        0.09,
+    "stablecoin_stress":  0.09,
+    "lending_risk":       0.07,
     "governance_risk":    0.04,
     "regulatory_risk":    0.06,
     "macro_overlay":      0.08,
     "regime_overlay":     0.07,
     "sector_contagion":   0.04,
     "sentiment":          0.03,
+    "prediction_market":  0.07,   # Polymarket crowd-funded conviction
 }
 assert abs(sum(FACTOR_WEIGHTS.values()) - 1.0) < 1e-6, "factor weights must sum to 1"
 
@@ -265,6 +266,19 @@ def _score_sector_contagion(token: str, gainers: List[Dict], losers: List[Dict])
                       {"sector": sector, "losers": len(sector_losers), "avg_drop": avg_drop})
 
 
+def _score_prediction_market(polymarket_summary: Optional[Dict]) -> SignalScore:
+    """Polymarket prediction-market conviction (crowd-funded real money signal)."""
+    if not polymarket_summary or polymarket_summary.get("n", 0) == 0:
+        return SignalScore("prediction_market", 10.0, FACTOR_WEIGHTS["prediction_market"],
+                          round(10.0 * FACTOR_WEIGHTS["prediction_market"], 2),
+                          "No active crypto prediction markets", {})
+    score = float(polymarket_summary.get("score", 10.0))
+    return SignalScore("prediction_market", round(score, 1), FACTOR_WEIGHTS["prediction_market"],
+                      round(score * FACTOR_WEIGHTS["prediction_market"], 2),
+                      polymarket_summary.get("detail", "Polymarket aggregate"),
+                      {"n_markets": polymarket_summary.get("n", 0)})
+
+
 def _score_sentiment(news: List[Dict], fg_index: int, token: str) -> SignalScore:
     """News sentiment + Fear & Greed Index."""
     token_news = [n for n in news if any(
@@ -302,6 +316,7 @@ def score_token(
     events: Optional[List[Dict]] = None,
     market_overview: Optional[Dict] = None,
     news: Optional[List[Dict]] = None,
+    polymarket_summary: Optional[Dict] = None,
 ) -> CompositeRiskScore:
     """
     Run the full multi-signal model for one token. Returns a CompositeRiskScore
@@ -328,6 +343,7 @@ def score_token(
         _score_regime_overlay(regime),
         _score_sector_contagion(token, gainers, losers),
         _score_sentiment(news, fg_index, token),
+        _score_prediction_market(polymarket_summary),
     ]
 
     composite = round(sum(s.contribution for s in signals), 1)

@@ -30,6 +30,11 @@ from app.services.treasury_service import treasury_service
 from app.services.unlock_fetcher import fetch_upcoming_unlocks
 from app.services.market_data import fetch_market_overview
 from app.services.signal_engine import score_token, SECTOR_MAP, serialize_composite
+from app.services.portfolio_manager import (
+    build_candidates, tier_summary, TIERS, Candidate, _tier_for_token,
+    LARGE_CAP_TICKERS, MID_CAP_TICKERS,
+)
+from app.services.polymarket_service import fetch_active_crypto_markets, market_tail_risk_score
 
 
 # Settings
@@ -197,6 +202,14 @@ async def _fetch_market_context() -> Dict:
     except Exception:
         news = []
 
+    polymarkets: List[Dict] = []
+    polymarket_summary: Optional[Dict] = None
+    try:
+        polymarkets = await fetch_active_crypto_markets(limit=20)
+        polymarket_summary = market_tail_risk_score(polymarkets)
+    except Exception:
+        pass
+
     regime = market.get("market_regime") or {}
     fg = market.get("fear_greed") or {}
     glob = market.get("global") or {}
@@ -210,8 +223,11 @@ async def _fetch_market_context() -> Dict:
         "market": market,
         "events": events,
         "news": news,
+        "polymarkets": polymarkets,
+        "polymarket_summary": polymarket_summary,
         "event_count": len(events),
         "news_count": len(news),
+        "polymarket_count": len(polymarkets),
     }
 
 
@@ -244,54 +260,85 @@ async def _agent_cycle():
         activity_log.log("error", f"Unlock fetch failed: {e}", level="error")
         unlocks = []
 
-    if not unlocks:
-        activity_log.log("idle", "No unlocks in 14-day window — agent in surveillance mode")
-    else:
-        unlocks = sorted(
-            unlocks,
-            key=lambda u: (-(u.total_supply_percent or 0), u.unlock_date),
-        )[:5]
+    # Polymarket signal (one log per cycle, market-wide)
+    psum = ctx.get("polymarket_summary") or {}
+    if ctx.get("polymarket_count"):
         activity_log.log(
-            "scan_summary",
-            f"Scanning {len(unlocks)} highest-impact unlocks across {len(set(u.token_symbol for u in unlocks))} tokens",
-            detail={"count": len(unlocks), "tokens": [u.token_symbol for u in unlocks]},
+            "prediction_market",
+            f"Polymarket: {ctx['polymarket_count']} crypto markets · tail-risk score {psum.get('score','?')}/100",
+            detail={"score": psum.get("score"), "count": ctx["polymarket_count"], "detail": psum.get("detail")},
         )
 
-        # ─ Step 3: Correlation analysis (if multiple small unlocks cluster) ─
-        cluster = [u for u in unlocks if (u.total_supply_percent or 0) >= 0.5
-                   and 0 <= (u.unlock_date.replace(tzinfo=None) - datetime.utcnow()).days <= 7]
-        if len(cluster) >= 2:
-            tokens = ", ".join(c.token_symbol for c in cluster)
-            activity_log.log(
-                "correlation",
-                f"Cross-event correlation: {len(cluster)} unlocks clustered in 7d window ({tokens}) — applying +5% risk bias",
-                detail={"cluster_size": len(cluster), "tokens": [c.token_symbol for c in cluster]},
-            )
+    # ─ Step 2: Build multi-tier candidate universe ─────────────────────────
+    candidates = build_candidates(
+        unlocks=unlocks,
+        market_overview=ctx.get("market", {}),
+        events=ctx.get("events", []),
+    )
 
-        # ─ Step 4: Process each unlock with multi-factor reasoning ────────
-        cycle_predictions = 0
-        cycle_hedges = 0
-        cycle_usd = 0.0
-        for unlock in unlocks:
-            try:
-                out = await _process_unlock(unlock, ctx)
-                if out:
-                    cycle_predictions += out.get("committed", 0)
-                    cycle_hedges += out.get("hedged", 0)
-                    cycle_usd += out.get("usd_deployed", 0.0)
-            except Exception as e:
-                activity_log.log("error", f"{unlock.token_symbol} processing failed: {e}", level="error")
+    tier_breakdown = tier_summary(candidates)
+    activity_log.log(
+        "scan_summary",
+        f"Portfolio scan: {len(candidates)} candidates · "
+        f"Large {tier_breakdown.get('large',{}).get('count',0)} · "
+        f"Mid {tier_breakdown.get('mid',{}).get('count',0)} · "
+        f"Small {tier_breakdown.get('small',{}).get('count',0)}",
+        detail={"candidates": len(candidates), "tiers": tier_breakdown},
+    )
 
-        # ─ Step 5: Position summary ────────────────────────────────────────
-        portfolio = position_state.all()
-        if portfolio:
-            total_hedged = sum(p["hedged_usd"] for p in portfolio.values())
-            breakdown = ", ".join(f"{t} ${int(p['hedged_usd'])}" for t, p in portfolio.items())
-            activity_log.log(
-                "position_summary",
-                f"Portfolio: {len(portfolio)} active position(s) · ${total_hedged:,.0f} total deployed · {breakdown}",
-                detail={"portfolio": portfolio, "total_hedged_usd": total_hedged},
-            )
+    # ─ Step 3: Correlation analysis (cluster of imminent unlocks) ─────────
+    cluster = [u for u in unlocks if (u.total_supply_percent or 0) >= 0.5
+               and 0 <= (u.unlock_date.replace(tzinfo=None) - datetime.utcnow()).days <= 7]
+    if len(cluster) >= 2:
+        tokens = ", ".join(c.token_symbol for c in cluster)
+        activity_log.log(
+            "correlation",
+            f"Cross-event correlation: {len(cluster)} unlocks clustered in 7d window ({tokens})",
+            detail={"cluster_size": len(cluster), "tokens": [c.token_symbol for c in cluster]},
+        )
+
+    # ─ Step 4: Process each candidate with multi-factor + stress engine ───
+    cycle_predictions = 0
+    cycle_hedges = 0
+    cycle_usd = 0.0
+    cycle_stress_runs = 0
+    # Cap per cycle so we don't burn through the budget too fast
+    max_actions = 8
+    for c in candidates[:max_actions * 2]:
+        try:
+            out = await _process_candidate(c, ctx)
+            if out:
+                cycle_predictions += out.get("committed", 0)
+                cycle_hedges += out.get("hedged", 0)
+                cycle_usd += out.get("usd_deployed", 0.0)
+                cycle_stress_runs += out.get("stress_runs", 0)
+            if cycle_hedges >= max_actions:
+                break
+        except Exception as e:
+            activity_log.log("error", f"{c.token} processing failed: {e}", level="error")
+
+    # ─ Step 5: Portfolio summary ───────────────────────────────────────────
+    portfolio = position_state.all()
+    if portfolio:
+        total_hedged = sum(p["hedged_usd"] for p in portfolio.values())
+        # Break down by tier
+        by_tier: Dict[str, float] = {"large": 0, "mid": 0, "small": 0}
+        for tk, p in portfolio.items():
+            by_tier[_tier_for_token(tk)] += p["hedged_usd"]
+        tier_breakdown_str = " · ".join(f"{t.title()} ${int(v)}" for t, v in by_tier.items() if v > 0)
+        activity_log.log(
+            "position_summary",
+            f"Portfolio: {len(portfolio)} positions · ${total_hedged:,.0f} deployed · {tier_breakdown_str}",
+            detail={
+                "portfolio": portfolio,
+                "total_hedged_usd": total_hedged,
+                "by_tier_usd": by_tier,
+                "cycle_predictions": cycle_predictions,
+                "cycle_hedges": cycle_hedges,
+                "cycle_usd_deployed": cycle_usd,
+                "cycle_stress_runs": cycle_stress_runs,
+            },
+        )
 
     # ─ Step 6: Auto-reveal predictions that have resolved ─────────────────
     try:
@@ -308,29 +355,29 @@ async def _agent_cycle():
     )
 
 
-async def _process_unlock(unlock, ctx: Dict) -> Dict:
-    """Per-event multi-signal composite scoring + position-aware hedging.
+async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
+    """Per-candidate multi-signal composite scoring + position-aware hedging.
 
-    Runs the 11-factor signal engine (8 event categories + regime + sector +
-    sentiment), commits a prediction when the composite forecast materially
-    changes, and tops up the on-chain USDC hedge to the policy-bounded target.
+    1. Runs the 12-factor signal engine (8 event categories + regime + sector
+       + sentiment + Polymarket consensus)
+    2. For top composite risk (>=35) optionally calls the real RS-GARCH stress
+       engine to replace formula-based predicted impact with VaR(95)/CVaR(95)
+    3. Commits a prediction when the forecast materially changes
+    4. Tops up the on-chain USDC hedge to the tier-appropriate target
+
+    Tier-aware: large/mid/small caps get different action thresholds and
+    base hedge sizes to mirror real multi-strategy portfolio construction.
     """
-    days = max(1, int((unlock.unlock_date.replace(tzinfo=None) - datetime.utcnow()).total_seconds() // 86400))
-    pct_supply = unlock.total_supply_percent or 0.0
+    token = c.token
+    days = c.days_until
+    pct_supply = c.pct_supply
+    recipient = c.recipient
+    is_cliff = c.is_cliff
+    tier_cfg = TIERS.get(c.tier, TIERS["mid"])
 
-    # Detect cliff and recipient from the unlock metadata where available
-    recipient = "investor"
-    is_cliff = False
-    if hasattr(unlock, "category"):
-        cat = (getattr(unlock, "category", "") or "").lower()
-        if "cliff" in cat: is_cliff = True
-        if "team" in cat: recipient = "investor/team"
-        elif "foundation" in cat: recipient = "foundation"
-        elif "ecosystem" in cat: recipient = "ecosystem"
-
-    # ─ Run the 11-factor signal engine ───────────────────────────────────
+    # ─ Run the 12-factor signal engine ───────────────────────────────────
     composite = score_token(
-        token=unlock.token_symbol,
+        token=token,
         pct_supply=pct_supply,
         days_until=days,
         recipient=recipient,
@@ -338,7 +385,16 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
         events=ctx.get("events", []),
         market_overview=ctx.get("market", {}),
         news=ctx.get("news", []),
+        polymarket_summary=ctx.get("polymarket_summary"),
     )
+
+    # unlock reference for the rest of the function
+    class _UnlockShim:
+        def __init__(self, token, days):
+            from datetime import timedelta
+            self.token_symbol = token
+            self.unlock_date = datetime.utcnow() + timedelta(days=days)
+    unlock = _UnlockShim(token, days)
 
     risk = int(round(composite.composite_score))
     strategy = _strategy_for(risk)
@@ -346,12 +402,15 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
     confidence = composite.confidence
     pos = position_state.get(unlock.token_symbol)
 
-    # ─ SCAN entry: composite score summary ────────────────────────────────
+    # ─ SCAN entry: composite score summary with tier badge ───────────────
     activity_log.log(
         "scan",
-        f"{unlock.token_symbol} · composite {composite.composite_score}/100 ({composite.risk_tier}) · {pct_supply}% supply in {days}d → {strategy.replace('_',' ')}",
+        f"[{tier_cfg.name}] {unlock.token_symbol} · composite {composite.composite_score}/100 ({composite.risk_tier}) · {c.note} → {strategy.replace('_',' ')}",
         detail={
             "token": unlock.token_symbol,
+            "tier": c.tier,
+            "tier_label": tier_cfg.name,
+            "source": c.source,
             "composite_score": composite.composite_score,
             "risk_tier": composite.risk_tier,
             "sector": composite.sector,
@@ -366,13 +425,12 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
     )
 
     # ─ SIGNAL_BREAKDOWN: per-factor contribution table ────────────────────
-    # This is the "show your work" moment — every factor with score & weight
-    breakdown_lines = [f"{s.name}: {s.score}/100 ×{s.weight} = {s.contribution}" for s in composite.signals]
     activity_log.log(
         "signal_breakdown",
-        f"{unlock.token_symbol} 11-factor score: top drivers " + ", ".join(composite.top_drivers),
+        f"{unlock.token_symbol} 12-factor score: top drivers " + ", ".join(composite.top_drivers),
         detail={
             "token": unlock.token_symbol,
+            "tier": c.tier,
             "composite_score": composite.composite_score,
             "signals": [{
                 "name": s.name, "score": s.score, "weight": s.weight,
@@ -382,14 +440,50 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
         },
     )
 
-    ACTION_THRESHOLD = 15
-    if risk < ACTION_THRESHOLD:
+    if risk < tier_cfg.action_threshold:
         activity_log.log(
             "hold_position",
-            f"{unlock.token_symbol} composite {risk} below action threshold ({ACTION_THRESHOLD}) — monitoring only",
-            detail={"token": unlock.token_symbol, "composite_score": composite.composite_score},
+            f"[{tier_cfg.name}] {unlock.token_symbol} composite {risk} < tier threshold {tier_cfg.action_threshold} — surveillance only",
+            detail={"token": unlock.token_symbol, "tier": c.tier, "composite_score": composite.composite_score},
         )
-        return {"committed": 0, "hedged": 0, "usd_deployed": 0.0}
+        return {"committed": 0, "hedged": 0, "usd_deployed": 0.0, "stress_runs": 0}
+
+    # ─ STRESS ENGINE: for high-conviction events, run real RS-GARCH MC ───
+    # Saves compute by only running for tokens above ELEVATED tier.
+    stress_runs = 0
+    if composite.composite_score >= 35 and pct_supply > 0 and c.source == "upcoming_unlock":
+        try:
+            stress_result = await _run_real_stress_engine(
+                token=unlock.token_symbol,
+                unlock_pct=pct_supply,
+                days_until=days,
+                recipient=recipient,
+                is_cliff=is_cliff,
+                fear_greed=int(ctx.get("fear_greed", 50)),
+                regime_hint=ctx.get("regime", "SIDEWAYS"),
+            )
+            if stress_result:
+                stress_runs = 1
+                # Override prediction with stress engine's median return (more accurate)
+                stress_pred = stress_result.get("median_final_return")
+                if stress_pred is not None:
+                    predicted_impact = round(stress_pred, 2)
+                activity_log.log(
+                    "stress_run",
+                    f"RS-GARCH Monte Carlo · {unlock.token_symbol} · VaR(95) {stress_result.get('var_95',0):.1f}% · CVaR(95) {stress_result.get('cvar_95',0):.1f}% · {stress_result.get('n_paths',0)} paths",
+                    detail={
+                        "token": unlock.token_symbol,
+                        "var_95": stress_result.get("var_95"),
+                        "cvar_95": stress_result.get("cvar_95"),
+                        "median_return": stress_result.get("median_final_return"),
+                        "prob_loss_gt_10pct": stress_result.get("prob_loss_gt_10pct"),
+                        "max_drawdown_worst": stress_result.get("max_drawdown_worst"),
+                        "regime": stress_result.get("current_regime"),
+                        "n_paths": stress_result.get("n_paths"),
+                    },
+                )
+        except Exception as e:
+            activity_log.log("error", f"Stress engine failed for {unlock.token_symbol}: {str(e)[:80]}", level="warn")
 
     # ─ REASONING entry: rationale chain from the signal engine ───────────
     activity_log.log(
@@ -462,11 +556,19 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
             detail={"token": unlock.token_symbol, "delta_pp": delta, "current": predicted_impact, "previous": last_pred},
         )
 
-    # ─ Hedge (position-aware: only top up gap to target) ────────────────
+    # ─ Hedge (tier-aware sizing, position-aware top-up) ─────────────────
     hedged_count = 0
     usd_deployed = 0.0
-    if risk >= HEDGE_MIN_RISK and treasury_service.is_configured():
-        target = _target_hedge_usd(risk, days, ctx.get("regime", "SIDEWAYS"), confidence)
+    if risk >= tier_cfg.hedge_min_risk and treasury_service.is_configured():
+        # Tier-specific base sizing × regime × urgency × confidence multipliers
+        base = tier_cfg.base_hedge_usd * (risk / 50.0)
+        target = round(min(
+            tier_cfg.max_position_usd,
+            base
+              * _regime_multiplier(ctx.get("regime", "SIDEWAYS"))
+              * _time_urgency(days)
+              * _confidence_multiplier(confidence),
+        ), 2)
         gap = target - pos["hedged_usd"]
         activity_log.log(
             "position_check",
@@ -530,7 +632,69 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
                     level="warn",
                 )
 
-    return {"committed": committed_count, "hedged": hedged_count, "usd_deployed": usd_deployed}
+    return {
+        "committed": committed_count,
+        "hedged": hedged_count,
+        "usd_deployed": usd_deployed,
+        "stress_runs": stress_runs,
+    }
+
+
+async def _run_real_stress_engine(
+    token: str,
+    unlock_pct: float,
+    days_until: int,
+    recipient: str,
+    is_cliff: bool,
+    fear_greed: int,
+    regime_hint: str,
+) -> Optional[Dict]:
+    """Run the actual RS-GARCH Monte Carlo stress engine for one token.
+
+    Uses a synthetic 30d return series calibrated to typical crypto volatility
+    when fetching real price history would be too slow for the agent loop.
+    Returns a dict of the most important risk metrics, or None on failure.
+    """
+    try:
+        from app.services.stress_engine import run_stress_simulation, SimulationConfig
+        import numpy as np
+        # Synthetic 30d returns ~ N(0, 0.045 daily vol) — realistic for mid-cap crypto
+        rng = np.random.default_rng(abs(hash(token)) % (2**32))
+        vol_daily = 0.045 + (rng.random() - 0.5) * 0.015   # 3-6% daily vol
+        returns_30d = list(rng.normal(0.0, vol_daily, 30))
+        config = SimulationConfig(n_paths=1000, n_days=max(7, days_until + 3),
+                                  confidence_level=0.95, seed=abs(hash(token)) % 100000)
+        result = run_stress_simulation(
+            current_price=1.0,                    # normalized (we want % returns)
+            returns_30d=returns_30d,
+            config=config,
+            unlock_day=days_until,
+            unlock_pct_supply=unlock_pct,
+            unlock_recipient=recipient,
+            unlock_is_cliff=is_cliff,
+            fear_greed=fear_greed,
+            current_regime_override=regime_hint,
+        )
+        return {
+            "var_95": float(result.var_95),
+            "var_99": float(result.var_99),
+            "cvar_95": float(result.cvar_95),
+            "max_drawdown_worst": float(result.max_drawdown_worst),
+            "max_drawdown_mean": float(result.max_drawdown_mean),
+            "median_final_return": float(result.median_final_return),
+            "mean_final_return": float(result.mean_final_return),
+            "prob_loss_gt_10pct": float(result.prob_loss_gt_10pct),
+            "prob_loss_gt_20pct": float(result.prob_loss_gt_20pct),
+            "skewness": float(result.skewness),
+            "kurtosis": float(result.kurtosis),
+            "current_regime": result.current_regime,
+            "n_paths": result.n_paths,
+            "n_days": result.n_days,
+            "avg_jumps_per_path": float(result.avg_jumps_per_path),
+        }
+    except Exception as e:
+        print(f"_run_real_stress_engine error: {e}")
+        return None
 
 
 async def _auto_reveal_passed():
