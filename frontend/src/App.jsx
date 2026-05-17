@@ -349,6 +349,44 @@ tr.clickable:hover td{background:var(--green-bg)}
            box-shadow:0 0 6px rgba(5,150,105,.5);animation:pulseDot 2s ease-in-out infinite}
 @keyframes pulseDot{0%,100%{opacity:1;box-shadow:0 0 6px rgba(5,150,105,.5)}50%{opacity:.6;box-shadow:0 0 12px rgba(5,150,105,.8)}}
 
+/* Header search */
+.hdr-search{position:relative;display:flex;align-items:center;gap:8px;background:var(--bg3);
+            border:1px solid var(--border);border-radius:var(--r2);padding:7px 12px;width:280px;
+            transition:all .15s}
+.hdr-search:focus-within{border-color:var(--green);background:var(--bg);box-shadow:0 0 0 3px rgba(5,150,105,.08)}
+.hdr-search input{flex:1;border:none;background:transparent;outline:none;font-size:13px;font-family:inherit;color:var(--text)}
+.hdr-search input::placeholder{color:var(--text3)}
+.hdr-search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg);
+                    border:1px solid var(--border);border-radius:var(--r2);box-shadow:var(--shadow3);
+                    max-height:360px;overflow-y:auto;z-index:200}
+.hdr-search-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
+                 border-bottom:1px solid var(--border);transition:background .12s}
+.hdr-search-item:last-child{border-bottom:none}
+.hdr-search-item:hover{background:var(--green-bg)}
+
+/* News */
+.news-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.news-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:18px;
+           transition:all .2s;cursor:pointer;position:relative;overflow:hidden}
+.news-card:hover{border-color:var(--green);box-shadow:var(--shadow2);transform:translateY(-2px)}
+.news-card-h{display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;gap:8px}
+.news-card-sym{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;
+               background:var(--bg3);font-size:11px;font-weight:700;color:var(--text)}
+.news-card-time{font-size:10px;color:var(--text3);font-weight:600}
+.news-card-title{font-size:14px;font-weight:700;line-height:1.4;color:var(--text);margin-bottom:8px}
+.news-card-desc{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+.news-card-f{display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border);font-size:10px}
+.news-card-src{color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.news-card-sent{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:10px;font-weight:700}
+.news-sent-up{background:var(--green-bg);color:var(--green)}
+.news-sent-down{background:var(--red-bg);color:var(--red)}
+.news-sent-flat{background:var(--bg3);color:var(--text3)}
+.news-filters{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.news-pill{padding:6px 12px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;
+           border:1px solid var(--border);background:var(--bg);color:var(--text2);transition:all .15s}
+.news-pill:hover{border-color:var(--green)}
+.news-pill.on{background:var(--green);color:#fff;border-color:var(--green)}
+
 /* Hero */
 .hero{margin:24px 0 28px;padding:36px 32px;border-radius:18px;position:relative;overflow:hidden;
       background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 35%,#ffffff 100%);
@@ -393,7 +431,7 @@ tr.clickable:hover td{background:var(--green-bg)}
 
 /* Responsive */
 @media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}.hero-inner{grid-template-columns:1fr}.hero-visual{display:none}.foot-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px}.tabs{overflow-x:auto;width:100%}.hero{padding:28px 20px;margin:18px 0 22px}.hero-title{font-size:26px}.hero-trust{gap:16px;flex-wrap:wrap}.foot-grid{grid-template-columns:1fr;gap:24px}.foot-bottom{flex-direction:column;gap:8px}}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px;flex-wrap:wrap;gap:10px}.tabs{overflow-x:auto;width:100%}.hero{padding:28px 20px;margin:18px 0 22px}.hero-title{font-size:26px}.hero-trust{gap:16px;flex-wrap:wrap}.foot-grid{grid-template-columns:1fr;gap:24px}.foot-bottom{flex-direction:column;gap:8px}.hdr-search{width:100%;order:3}}
 `
 
 /* ═══ HELPERS ═══ */
@@ -1050,6 +1088,10 @@ function App() {
   const [toasts,setToasts] = useState([])
   const [marketPage,setMarketPage] = useState(1)
   const [showRegime,setShowRegime] = useState(false)
+  const [news,setNews] = useState([])
+  const [newsFilter,setNewsFilter] = useState('all')
+  const [headerSearch,setHeaderSearch] = useState('')
+  const [showSearchResults,setShowSearchResults] = useState(false)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1061,16 +1103,17 @@ function App() {
   const load = useCallback(async()=>{
     setLoading(true)
     try{
-      const [u,p,s,h,m,bt,w,y,ev] = await Promise.all([
+      const [u,p,s,h,m,bt,w,y,ev,nw] = await Promise.all([
         fetchJson('/api/unlocks/upcoming',{unlocks:[]}),
         fetchJson('/api/portfolio/holdings',null),
         fetchJson('/api/agent/status',null),
         fetchJson('/api/agent/history',{hedges:[]}),
         fetchJson('/api/market/overview',null,11000),
-        fetchJson('/api/backtest/summary',null),
+        fetchJson('/api/backtest/run',null,15000),
         fetchJson('/api/wallet/status',null),
         fetchJson('/api/wallet/yield',null),
         fetchJson('/api/events/stream?min_severity=0',null,8000),
+        fetchJson('/api/events/news',{articles:[]},10000),
       ])
       let marketPayload = m
       if(!marketPayload?.top_tokens?.length || marketPayload.top_tokens.length < 100) {
@@ -1089,6 +1132,7 @@ function App() {
       setWalletData(w)
       setYieldData(y)
       setEventStream((ev&&ev.events&&ev.events.length)?ev:DEMO_EVENTS)
+      setNews(nw?.articles||[])
     }catch(e){console.error(e)}
     setLoading(false)
   },[])
@@ -1238,6 +1282,40 @@ function App() {
           {agent?.kite_connected&&<span className="bdg bdg-live"><span className="pulse-dot" style={{width:5,height:5,marginRight:2}}/> Live</span>}
         </div>
         <div className="hdr-r">
+          <div className="hdr-search">
+            <Search size={14} color="var(--text3)"/>
+            <input
+              type="text"
+              placeholder="Search any token... (ARB, ETH, SOL)"
+              value={headerSearch}
+              onChange={e=>{setHeaderSearch(e.target.value);setShowSearchResults(!!e.target.value)}}
+              onFocus={()=>setShowSearchResults(!!headerSearch)}
+              onBlur={()=>setTimeout(()=>setShowSearchResults(false),200)}
+            />
+            {showSearchResults&&headerSearch&&(
+              <div className="hdr-search-results">
+                {topTokens.filter(t=>{
+                  const q=headerSearch.toUpperCase()
+                  return t.symbol?.toUpperCase().includes(q)||t.name?.toUpperCase().includes(q)
+                }).slice(0,8).map((t,i)=>(
+                  <div key={i} className="hdr-search-item" onMouseDown={()=>{
+                    setSelectedToken({...t,token_symbol:t.symbol,token_name:t.name})
+                    setHeaderSearch('');setShowSearchResults(false)
+                  }}>
+                    <div className="ti" style={{width:24,height:24,fontSize:9}}>{t.image?<img src={t.image} alt=""/>:t.symbol?.slice(0,2)}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:12,fontWeight:700}}>{t.symbol}</div>
+                      <div style={{fontSize:10,color:'var(--text3)'}}>{t.name}</div>
+                    </div>
+                    <div style={{fontSize:11,fontWeight:600,color:clr(t.change_24h)}}>{t.change_24h>0?'+':''}{num(t.change_24h).toFixed(2)}%</div>
+                  </div>
+                ))}
+                {topTokens.filter(t=>{const q=headerSearch.toUpperCase();return t.symbol?.toUpperCase().includes(q)||t.name?.toUpperCase().includes(q)}).length===0&&(
+                  <div style={{padding:14,fontSize:12,color:'var(--text3)',textAlign:'center'}}>No tokens match "{headerSearch}"</div>
+                )}
+              </div>
+            )}
+          </div>
           <button className="btn btn-s" onClick={()=>{load();toast('Refreshed','Data updated','g')}}><RefreshCw size={13}/> Refresh</button>
           <button className="btn btn-p" onClick={scan} disabled={scanning}>
             {scanning?<RefreshCw size={13} className="spin"/>:<Zap size={13}/>}
@@ -1331,28 +1409,28 @@ function App() {
         </div>
       )}
 
-      {/* STATS (CLICKABLE) */}
+      {/* STATS - REAL BACKEND METRICS */}
       <div className="stats">
-        <div className="st" onClick={()=>setTab('portfolio')}>
+        <div className="st" onClick={()=>setTab('backtest')}>
           <div className="st-arrow"><ArrowRight size={14}/></div>
-          <div className="st-ic" style={{background:'var(--green-bg)'}}><Wallet size={18} color="var(--green)"/></div>
-          <div className="st-label">Portfolio</div>
-          <div className="st-val">{portfolio?fmt(portfolio.total_value_usd):'$0'}</div>
-          <div className="st-sub">{portfolio?.holdings_count||0} tokens <ArrowRight size={10}/></div>
-        </div>
-        <div className="st" onClick={()=>setTab('dashboard')}>
-          <div className="st-arrow"><ArrowRight size={14}/></div>
-          <div className="st-ic" style={{background:'var(--green-bg2)'}}><Shield size={18} color="var(--green)"/></div>
-          <div className="st-label">Protected</div>
-          <div className="st-val" style={{color:'var(--green)'}}>{portfolio?fmt(portfolio.total_value_protected):'$0'}</div>
-          <div className="st-sub">{hedges.length} hedges <ArrowRight size={10}/></div>
+          <div className="st-ic" style={{background:'var(--green-bg)'}}><Shield size={18} color="var(--green)"/></div>
+          <div className="st-label">Backtest Saved</div>
+          <div className="st-val" style={{color:'var(--green)'}}>{backtest?fmt(backtest.total_savings):'—'}</div>
+          <div className="st-sub">{backtest?`${backtest.win_rate}% win rate on ${backtest.total_events_analyzed} events`:'Loading historical data...'} <ArrowRight size={10}/></div>
         </div>
         <div className="st" onClick={()=>setTab('dashboard')}>
           <div className="st-arrow"><ArrowRight size={14}/></div>
           <div className="st-ic" style={{background:'var(--yellow-bg)'}}><AlertTriangle size={18} color="var(--yellow)"/></div>
           <div className="st-label">Risk Events</div>
           <div className="st-val" style={{color:threatLevel==='HIGH'||threatLevel==='EXTREME'?'var(--red)':threatLevel==='ELEVATED'?'var(--yellow)':'var(--green)'}}>{activeEventCount}</div>
-          <div className="st-sub">{threatLevel} threat • 8 families <ArrowRight size={10}/></div>
+          <div className="st-sub">{threatLevel} threat · 8 categories <ArrowRight size={10}/></div>
+        </div>
+        <div className="st" onClick={()=>setTab('news')}>
+          <div className="st-arrow"><ArrowRight size={14}/></div>
+          <div className="st-ic" style={{background:'var(--blue-bg)'}}><Info size={18} color="var(--blue)"/></div>
+          <div className="st-label">News & Signals</div>
+          <div className="st-val" style={{color:'var(--blue)'}}>{news.length}</div>
+          <div className="st-sub">Tokens trending today <ArrowRight size={10}/></div>
         </div>
         <div className="st" onClick={()=>{if(!scanning) scan()}}>
           <div className="st-arrow"><Zap size={14}/></div>
@@ -1372,7 +1450,7 @@ function App() {
 
       {/* TABS */}
       <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'portfolio',i:<PieChart size={13}/>,l:'Portfolio'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
@@ -1736,7 +1814,21 @@ function App() {
       {tab==='predictions'&&(
         <div className="fade">
           <div className="sec">
-            <div className="sh"><h2><Target size={16} color="var(--green)"/> Verifiable Prediction Oracle</h2><span className="bdg">Phase 3</span></div>
+            <div className="sh"><h2><Target size={16} color="var(--green)"/> Verifiable Prediction Oracle</h2><span className="bdg">Live</span></div>
+
+            {/* Honest hackathon state banner */}
+            <div className="crd" style={{cursor:'default',background:'linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 100%)',border:'1px solid #d1fae5',marginBottom:14,padding:16}}>
+              <div style={{display:'flex',gap:14,alignItems:'flex-start'}}>
+                <div style={{width:38,height:38,borderRadius:10,background:'var(--green)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <Info size={18} color="#fff"/>
+                </div>
+                <div>
+                  <div style={{fontSize:14,fontWeight:800,color:'var(--text)',marginBottom:4}}>How the reputation track record builds over time</div>
+                  <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>The oracle works in two phases. <strong>Phase 1 (commit):</strong> the agent runs a stress test and locks a prediction hash on-chain before each upcoming unlock event. <strong>Phase 2 (reveal):</strong> after the event resolves (days or weeks later), the prediction is revealed and the contract scores the accuracy. The reputation grade only updates after revealed predictions accumulate — which is why a freshly-deployed agent always starts in "calibrating" state. Try the commit form below to add a new prediction now.</div>
+                </div>
+              </div>
+            </div>
+
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
               {/* Create Prediction */}
               <div className="crd" style={{cursor:'default',borderLeft:'3px solid var(--green)'}}>
@@ -1876,6 +1968,92 @@ function App() {
               {backtest.per_token&&<div className="tw" style={{marginBottom:14}}><table><thead><tr><th>Token</th><th>Events</th><th>Avg Impact</th><th>Worst</th><th>Savings</th></tr></thead><tbody>{Object.entries(backtest.per_token).map(([t,d])=>(<tr key={t}><td style={{fontWeight:700}}>{t}</td><td>{d.events}</td><td style={{color:'var(--red)'}}>{d.avg_impact}%</td><td style={{color:'var(--red)',fontWeight:600}}>{d.worst_impact}%</td><td style={{color:'var(--green)',fontWeight:700}}>{fmt(d.savings)}</td></tr>))}</tbody></table></div>}
               {backtest.detailed_results&&<div className="tw"><table><thead><tr><th>Token</th><th>Date</th><th>Supply</th><th>Impact</th><th>Strategy</th><th>Without</th><th>With</th><th>Saved</th></tr></thead><tbody>{backtest.detailed_results.map((r,i)=>(<tr key={i}><td style={{fontWeight:600}}>{r.token}</td><td style={{fontSize:11}}>{r.date}</td><td>{r.pct_supply}%</td><td style={{color:'var(--red)',fontWeight:600}}>{r.actual_impact}%</td><td><span className={`str ${stratCls(r.strategy_chosen)}`}>{r.strategy_chosen?.replace('_',' ')}</span></td><td style={{color:'var(--red)'}}>{fmt(r.loss_without_shield)}</td><td style={{color:'var(--yellow)'}}>{fmt(r.loss_with_shield)}</td><td style={{color:'var(--green)',fontWeight:700}}>{fmt(r.savings)}</td></tr>))}</tbody></table></div>}
             </>)}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ NEWS ═══ */}
+      {tab==='news'&&(
+        <div className="fade">
+          <div className="sec">
+            <div className="sh">
+              <h2><Info size={16} color="var(--blue)"/> Market News & Token Signals</h2>
+              <button className="btn btn-s btn-sm" onClick={()=>{load();toast('Refreshed','News updated','g')}}><RefreshCw size={12}/> Refresh</button>
+            </div>
+            <p style={{fontSize:13,color:'var(--text2)',marginBottom:16,lineHeight:1.6}}>Real-time market signals and token-level news that feed into the risk engine. Each item is tagged with sentiment and the token it affects. Click any card to open the token detail panel.</p>
+
+            <div className="news-filters">
+              {['all','positive','negative','neutral'].map(f=>(
+                <span key={f} className={`news-pill ${newsFilter===f?'on':''}`} onClick={()=>setNewsFilter(f)}>
+                  {f==='all'?`All (${news.length})`:f.charAt(0).toUpperCase()+f.slice(1)}
+                </span>
+              ))}
+            </div>
+
+            {news.length===0?(
+              <div className="empty"><Info size={36} color="var(--text3)" style={{marginBottom:10}}/><h3 style={{fontSize:15,fontWeight:700}}>No signals available</h3><p>News data is loading from the backend. Try refresh.</p></div>
+            ):(
+              <div className="news-grid">
+                {news.filter(n=>{
+                  if(newsFilter==='all') return true
+                  const s = n.sentiment||0
+                  if(newsFilter==='positive') return s > 0.05
+                  if(newsFilter==='negative') return s < -0.05
+                  return Math.abs(s) <= 0.05
+                }).map((n,i)=>{
+                  const sentimentClass = (n.sentiment||0) > 0.05 ? 'news-sent-up' : (n.sentiment||0) < -0.05 ? 'news-sent-down' : 'news-sent-flat'
+                  const sentimentIcon = (n.sentiment||0) > 0.05 ? <TrendingUp size={10}/> : (n.sentiment||0) < -0.05 ? <TrendingDown size={10}/> : <Activity size={10}/>
+                  const entity = n.entities?.[0]
+                  const tokenMatch = entity?.symbol && topTokens.find(t=>t.symbol===entity.symbol)
+                  return (
+                    <div key={i} className="news-card" onClick={()=>{
+                      if(tokenMatch){setSelectedToken({...tokenMatch,token_symbol:tokenMatch.symbol,token_name:tokenMatch.name})}
+                      else if(n.url){window.open(n.url,'_blank')}
+                    }}>
+                      <div className="news-card-h">
+                        {entity?<span className="news-card-sym">{entity.symbol}</span>:<span className="news-card-sym">MARKET</span>}
+                        <span className="news-card-time">{n.published_at?new Date(n.published_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):''}</span>
+                      </div>
+                      <div className="news-card-title">{n.title}</div>
+                      <div className="news-card-desc">{n.description||'No description available.'}</div>
+                      <div className="news-card-f">
+                        <span className="news-card-src">{(n.source||'unknown').replace(/_/g,' ')}</span>
+                        <span className={`news-card-sent ${sentimentClass}`}>
+                          {sentimentIcon} {((n.sentiment||0)*100).toFixed(1)}%
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="sec">
+            <div className="sh"><h2><Activity size={15} color="var(--yellow)"/> Live Event Stream</h2></div>
+            <p style={{fontSize:12,color:'var(--text3)',marginBottom:10}}>System-detected events from multiple data sources, ranked by severity.</p>
+            <div className="tw">
+              <table>
+                <thead><tr><th>Event</th><th>Token</th><th>Source</th><th>Severity</th><th>Description</th></tr></thead>
+                <tbody>
+                  {(eventStream?.events||[]).slice(0,20).map((e,i)=>(
+                    <tr key={i} className="clickable" onClick={()=>{
+                      const tk = topTokens.find(t=>t.symbol===e.token_symbol)
+                      if(tk) setSelectedToken({...tk,token_symbol:tk.symbol,token_name:tk.name})
+                    }}>
+                      <td style={{fontWeight:600,textTransform:'capitalize'}}>{(e.event_type||'').replace(/_/g,' ')}</td>
+                      <td>{e.token_symbol||'—'}</td>
+                      <td style={{fontSize:11,color:'var(--text3)'}}>{e.source||eventMeta(e.event_type).source}</td>
+                      <td><span className={`rsk ${eventSeverityClass(e.severity_score||0)}`}>{e.severity_label||'INFO'} {e.severity_score||0}</span></td>
+                      <td style={{fontSize:11,color:'var(--text2)',maxWidth:340}}>{e.title||e.description||''}</td>
+                    </tr>
+                  ))}
+                  {(!eventStream?.events||eventStream.events.length===0)&&(
+                    <tr><td colSpan="5" style={{textAlign:'center',color:'var(--text3)',padding:20}}>No events detected. Backend stream is initializing.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
