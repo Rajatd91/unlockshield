@@ -449,6 +449,22 @@ const pct = (v, digits = 1) => `${num(v).toFixed(digits)}%`
 const fmtD = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
 const daysUntil = d => Math.ceil((new Date(d)-new Date())/864e5)
 const clr = v => v>0?'var(--green)':v<0?'var(--red)':'var(--text3)'
+
+// Normalize a tx_hash to a valid KiteScan URL. Returns null if not a real on-chain hash.
+const kiteScanUrl = (txHash) => {
+  if(!txHash) return null
+  const s = String(txHash).toLowerCase().trim()
+  // Reject synthetic/placeholder hashes that don't exist on-chain
+  if(s.startsWith('0x_')) return null
+  if(s.startsWith('hist-') || s.startsWith('local-')) return null
+  if(s === '0x' + '0'.repeat(64)) return null
+  // Add 0x prefix if missing (web3.py returns hex without prefix in newer versions)
+  const normalized = s.startsWith('0x') ? s : ('0x' + s)
+  // Valid tx hashes are 0x + 64 hex chars
+  if(normalized.length !== 66) return null
+  if(!/^0x[0-9a-f]{64}$/.test(normalized)) return null
+  return `https://testnet.kitescan.ai/tx/${normalized}`
+}
 const riskCls = s => s>=80?'r-c':s>=55?'r-h':s>=35?'r-m':'r-l'
 const riskLabel = s => s>=80?'CRITICAL':s>=55?'HIGH':s>=35?'MEDIUM':'LOW'
 const strategyForRisk = s => s>=80?'FULL_EXIT':s>=55?'SHORT_HEDGE':s>=35?'DCA_EXIT':'HOLD'
@@ -1131,7 +1147,7 @@ function TokenPanel({token,analysis,unlockInfo,onClose}) {
           {analysis?.key_risks?.length>0&&<div style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>Key Risks</div><div style={{display:'flex',flexWrap:'wrap',gap:4}}>{analysis.key_risks.map((r,i)=>(<span key={i} style={{background:'var(--red-bg)',color:'var(--red)',padding:'3px 8px',borderRadius:4,fontSize:10,fontWeight:600}}>{r}</span>))}</div></div>}
           {analysis?.hedge?.execution_plan&&<div style={{marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:8}}>Execution Plan</div>{analysis.hedge.execution_plan.map((s,j)=>(<div className="ps-s" key={j}><span className="ps-a">{s.action}</span>{s.amount&&` — ${s.amount}`}{s.venue&&<span style={{color:'var(--text3)'}}> via {s.venue}</span>}</div>))}</div>}
           {analysis?.hedge?.action!=='HOLD'&&analysis?.hedge&&<div className="info-box" style={{borderLeftColor:'var(--green)',background:'var(--green-bg)',marginBottom:16}}><span style={{color:'var(--green)',fontWeight:700}}>HEDGE EXECUTED</span> — {analysis.hedge.message}</div>}
-          {analysis?.attestation?.tx_hash!=='0x'+'0'.repeat(64)&&analysis?.attestation&&<a href={analysis.attestation.explorer_url} target="_blank" rel="noopener" style={{display:'flex',alignItems:'center',gap:6,color:'var(--green)',fontWeight:600,fontSize:12,textDecoration:'none'}}><CheckCircle size={14}/> View On-Chain Attestation <ExternalLink size={12}/></a>}
+          {(() => { const url = kiteScanUrl(analysis?.attestation?.tx_hash); return url ? <a href={url} target="_blank" rel="noopener" style={{display:'flex',alignItems:'center',gap:6,color:'var(--green)',fontWeight:600,fontSize:12,textDecoration:'none'}}><CheckCircle size={14}/> View On-Chain Attestation <ExternalLink size={12}/></a> : null })()}
         </div>
       </div>
     </>
@@ -1708,7 +1724,7 @@ function App() {
                     <div className="fade" style={{marginTop:12}}>
                       {r.factor_scores&&<div style={{marginBottom:12}}><div style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>Risk Factors</div>{Object.entries(r.factor_scores).map(([k,v])=>(<div className="fr" key={k}><span className="fl">{k.replace(/_/g,' ')}</span><div className="fb"><div className="fv" style={{width:`${v}%`,background:barClr(v)}}/></div><span className="fn" style={{color:barClr(v)}}>{v}</span></div>))}</div>}
                       {r.hedge?.execution_plan&&<div style={{marginTop:8}}><div style={{fontSize:10,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:6}}>Execution Plan</div>{r.hedge.execution_plan.map((s,j)=>(<div className="ps-s" key={j}><span className="ps-a">{s.action}</span>{s.amount&&` — ${s.amount}`}{s.venue&&<span style={{color:'var(--text3)'}}> via {s.venue}</span>}</div>))}</div>}
-                      {r.attestation?.tx_hash!=='0x'+'0'.repeat(64)&&r.attestation&&<a href={r.attestation.explorer_url} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,color:'var(--green)',fontSize:11,fontWeight:600,marginTop:8,textDecoration:'none'}}><CheckCircle size={12}/> Verified on Kite <ExternalLink size={10}/></a>}
+                      {(() => { const url = kiteScanUrl(r.attestation?.tx_hash); return url ? <a href={url} target="_blank" rel="noopener" style={{display:'inline-flex',alignItems:'center',gap:4,color:'var(--green)',fontSize:11,fontWeight:600,marginTop:8,textDecoration:'none'}}><CheckCircle size={12}/> Verified on Kite <ExternalLink size={10}/></a> : null })()}
                       <div style={{marginTop:10}}><button className="btn btn-p btn-sm" onClick={e=>{e.stopPropagation();setSelectedToken({token_symbol:r.token,token_name:r.token})}}><Eye size={12}/> Full Analysis</button></div>
                     </div>
                   )}
@@ -2065,7 +2081,7 @@ function App() {
                     <td>{(p.confidence*100).toFixed(0)}%</td>
                     <td><span className={`rgm rgm-${(p.regime||'sideways').toLowerCase()}`}>{p.regime}</span></td>
                     <td style={{fontSize:11,color:'var(--text3)'}}>{new Date(p.committed_at).toLocaleDateString()}</td>
-                    <td>{p.on_chain?<CheckCircle size={14} color="var(--green)"/>:<Clock size={14} color="var(--text3)"/>}</td>
+                    <td>{(() => { const url = kiteScanUrl(p.tx_hash); return url ? <a href={url} target="_blank" rel="noopener" title="View tx on KiteScan" style={{display:'inline-flex',alignItems:'center',gap:3,color:'var(--green)',textDecoration:'none',fontSize:11,fontWeight:600}}><CheckCircle size={14}/> <ExternalLink size={10}/></a> : (p.on_chain ? <CheckCircle size={14} color="var(--green)" title="Seeded historical (synthetic hash)"/> : <Clock size={14} color="var(--text3)"/>) })()}</td>
                     <td>{p.revealed?<span className="rsk r-l">Revealed</span>:<span className="rsk r-m">Pending</span>}</td>
                     <td style={{fontWeight:700,color:p.accuracy>=80?'var(--green)':p.accuracy>=50?'var(--yellow)':'var(--red)'}}>{p.accuracy!=null?`${p.accuracy}/100`:'—'}</td>
                   </tr>

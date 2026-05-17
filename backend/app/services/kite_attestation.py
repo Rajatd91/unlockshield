@@ -52,6 +52,25 @@ CONTRACT_ABI = json.loads("""[
 EXPLORER_BASE = "https://testnet.kitescan.ai/tx/"
 
 
+def _hex_with_prefix(value) -> str:
+    """Normalize a web3 hex/bytes value to a 0x-prefixed lowercase hex string."""
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        s = value.hex()
+    elif hasattr(value, "hex"):
+        try:
+            s = value.hex()
+        except Exception:
+            s = str(value)
+    else:
+        s = str(value)
+    s = s.lower()
+    if s.startswith("0x"):
+        return s
+    return "0x" + s
+
+
 class KiteAttestationService:
     def __init__(self):
         rpc_url = os.getenv("KITE_RPC_URL", "https://rpc-testnet.gokite.ai/")
@@ -127,12 +146,13 @@ class KiteAttestationService:
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
 
             prediction_count = self.contract.functions.commitCount().call()
+            tx_hex = _hex_with_prefix(receipt.transactionHash)
 
             return AttestationRecord(
                 prediction_id=prediction_count,
-                tx_hash=receipt.transactionHash.hex(),
+                tx_hash=tx_hex,
                 block_number=receipt.blockNumber,
-                explorer_url=f"{EXPLORER_BASE}{receipt.transactionHash.hex()}"
+                explorer_url=f"{EXPLORER_BASE}{tx_hex}"
             )
 
         except Exception as e:
@@ -169,12 +189,13 @@ class KiteAttestationService:
             tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
             receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
             commit_count = self.contract.functions.commitCount().call()
+            tx_hex = _hex_with_prefix(receipt.transactionHash)
 
             return AttestationRecord(
                 prediction_id=commit_count,
-                tx_hash=receipt.transactionHash.hex(),
+                tx_hash=tx_hex,
                 block_number=receipt.blockNumber,
-                explorer_url=f"{EXPLORER_BASE}{receipt.transactionHash.hex()}"
+                explorer_url=f"{EXPLORER_BASE}{tx_hex}"
             )
 
         except Exception as e:
