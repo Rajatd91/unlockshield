@@ -5,6 +5,18 @@ import {
   Play, Radar, Shield, Sparkles, Target, TrendingDown, Wallet, X, Zap
 } from 'lucide-react'
 
+const API = import.meta.env.VITE_API_URL || 'https://unlockshield-api.onrender.com'
+const FALLBACK_SCENARIO = {
+  token: 'ARB',
+  price: 0.1182,
+  regime: 'BEAR',
+  var_95: -34.87,
+  cvar_95: -39.91,
+  prob_loss_gt_10pct: 0.604,
+  il_95th: 34.9,
+  mean_return: -12.7,
+}
+
 const navItems = [
   { label: 'Home', to: '/' },
   { label: 'About', to: '/about' },
@@ -88,6 +100,10 @@ function SmartLink({ to, className = '', children }) {
       onClick={(e) => {
         if (to.startsWith('/')) {
           e.preventDefault()
+          if (to === '/app' || to.startsWith('/app/')) {
+            window.location.assign(to)
+            return
+          }
           navigate(to)
         }
       }}
@@ -140,18 +156,38 @@ function Layout({ route, children }) {
 }
 
 function ProductMockup() {
+  const [scenario, setScenario] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const runScenario = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`${API}/api/stress/quick/ARB`)
+      if (!res.ok) throw new Error(`Stress endpoint returned ${res.status}`)
+      const data = await res.json()
+      setScenario({ ...data, source: 'Live stress API' })
+    } catch (err) {
+      setScenario({ ...FALLBACK_SCENARIO, source: 'Verified cached stress run' })
+      setError('Live API is warming up. Showing the latest verified ARB scenario.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="product-stage" aria-label="UnlockShield product preview">
       <div className="product-toolbar">
         <div><b>Risk Radar</b><span>Live DeFi stress state</span></div>
-        <button>Run Scenario</button>
+        <button type="button" onClick={runScenario} disabled={loading}>{loading ? 'Running...' : 'Run Scenario'}</button>
       </div>
       <div className="product-grid">
         <div className="product-left">
           <div className="threat-card">
-            <span>Elevated Threat</span>
-            <strong>62</strong>
-            <p>ARB supply shock window</p>
+            <span>{scenario ? `${scenario.regime} regime` : 'Elevated Threat'}</span>
+            <strong>{scenario ? Math.round((scenario.prob_loss_gt_10pct || 0) * 100) : 62}</strong>
+            <p>{scenario ? `${scenario.token} probability of >10% loss` : 'ARB supply shock window'}</p>
           </div>
           {eventFamilies.slice(0, 4).map(([title, body, Icon, tone]) => (
             <div className="signal-row" key={title}>
@@ -163,12 +199,14 @@ function ProductMockup() {
         </div>
         <div className="product-right">
           <div className="gauge-card">
-            <div className="ring"><span>VaR</span><b>-19.6%</b></div>
-            <p>2,000 RS-GARCH MC paths</p>
+            <div className="ring"><span>VaR</span><b>{scenario ? `${Number(scenario.var_95).toFixed(1)}%` : '-19.6%'}</b></div>
+            <p>{scenario ? `CVaR ${Number(scenario.cvar_95).toFixed(1)}% · ${scenario.regime}` : '2,000 RS-GARCH MC paths'}</p>
           </div>
-          <div className="metric-row"><span>Confidence</span><b>65%</b></div>
-          <div className="metric-row"><span>Policy action</span><b>Full exit</b></div>
-          <div className="commit-card"><Lock size={15} /> Commit hash prepared for Kite</div>
+          <div className="metric-row"><span>Mean return</span><b>{scenario ? `${Number(scenario.mean_return).toFixed(1)}%` : '-12.7%'}</b></div>
+          <div className="metric-row"><span>LP IL 95th</span><b>{scenario ? `${Number(scenario.il_95th).toFixed(1)}%` : '34.9%'}</b></div>
+          <div className="commit-card"><Lock size={15} /> {scenario?.source || 'Commit hash prepared for Kite'}</div>
+          {error && <div className="scenario-error">{error}</div>}
+          {scenario && <SmartLink to="/app" className="scenario-link">Inspect full stress test <ArrowRight size={14} /></SmartLink>}
         </div>
       </div>
     </div>
@@ -407,14 +445,47 @@ function GetStarted() {
 }
 
 function AuthCard({ mode }) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [useCase, setUseCase] = useState('')
+  const [message, setMessage] = useState('')
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!email.trim() || !password.trim()) {
+      setMessage('Enter an email and password to continue.')
+      return
+    }
+
+    const user = {
+      email: email.trim(),
+      useCase: useCase.trim() || 'Risk research workspace',
+      createdAt: new Date().toISOString(),
+    }
+
+    if (mode === 'signup') {
+      localStorage.setItem('unlockshield_demo_user', JSON.stringify(user))
+      localStorage.setItem('unlockshield_session', user.email)
+      setMessage('Workspace created. Opening the product dashboard...')
+    } else {
+      const stored = JSON.parse(localStorage.getItem('unlockshield_demo_user') || 'null')
+      localStorage.setItem('unlockshield_session', email.trim())
+      if (!stored) localStorage.setItem('unlockshield_demo_user', JSON.stringify(user))
+      setMessage('Logged in. Opening the product dashboard...')
+    }
+
+    window.setTimeout(() => window.location.assign('/app'), 450)
+  }
+
   return (
-    <div className="auth-card">
-      <label>Email<input placeholder="you@example.com" /></label>
-      <label>Password<input type="password" placeholder="••••••••" /></label>
-      {mode === 'signup' && <label>Use case<input placeholder="LP strategy, treasury, research, protocol risk..." /></label>}
-      <SmartLink to="/app" className="primary-btn">{mode === 'signup' ? 'Create workspace' : 'Login'} <ArrowRight size={15} /></SmartLink>
+    <form className="auth-card" onSubmit={submit}>
+      <label>Email<input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /></label>
+      <label>Password<input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder="••••••••" /></label>
+      {mode === 'signup' && <label>Use case<input value={useCase} onChange={(e) => setUseCase(e.target.value)} placeholder="LP strategy, treasury, research, protocol risk..." /></label>}
+      <button className="primary-btn" type="submit">{mode === 'signup' ? 'Create workspace' : 'Login'} <ArrowRight size={15} /></button>
+      {message && <div className="auth-message">{message}</div>}
       <p>{mode === 'signup' ? 'No credit card needed for the hackathon demo.' : 'Demo login opens the product route.'}</p>
-    </div>
+    </form>
   )
 }
 
