@@ -29,13 +29,14 @@ from app.services.prediction_oracle import oracle, generate_commit_hash
 from app.services.treasury_service import treasury_service
 from app.services.unlock_fetcher import fetch_upcoming_unlocks
 from app.services.market_data import fetch_market_overview
+from app.services.signal_engine import score_token, SECTOR_MAP, serialize_composite
 
 
 # Settings
 LOOP_INTERVAL_SECONDS = int(os.getenv("AGENT_LOOP_INTERVAL", "90"))
 LOOP_ENABLED = os.getenv("AGENT_LOOP_ENABLED", "true").lower() in ("1", "true", "yes")
 ACTIVITY_LIMIT = 250
-HEDGE_MIN_RISK = int(os.getenv("AGENT_HEDGE_MIN_RISK", "35"))
+HEDGE_MIN_RISK = int(os.getenv("AGENT_HEDGE_MIN_RISK", "20"))   # composite score threshold to hedge
 HEDGE_BASE_USD = float(os.getenv("AGENT_HEDGE_BASE_USD", "150"))
 REVEAL_WINDOW_DAYS = int(os.getenv("AGENT_REVEAL_WINDOW_DAYS", "30"))
 
@@ -175,22 +176,43 @@ def _predicted_impact(pct_supply: float, regime: str, days: int) -> float:
 # ─── Cycle ──────────────────────────────────────────────────────────────────
 
 async def _fetch_market_context() -> Dict:
+    """Pull market overview, events, and news for multi-signal scoring."""
+    market = {}
+    events: List[Dict] = []
+    news: List[Dict] = []
     try:
-        m = await fetch_market_overview()
-        regime = (m or {}).get("market_regime") or {}
-        fg = (m or {}).get("fear_greed") or {}
-        glob = (m or {}).get("global") or {}
-        return {
-            "regime": regime.get("regime", "SIDEWAYS"),
-            "confidence": regime.get("confidence", 0.5),
-            "fear_greed": fg.get("value", 50),
-            "fg_label": fg.get("classification", "Neutral"),
-            "btc_dom": glob.get("btc_dominance"),
-            "market_change_24h": glob.get("market_cap_change_24h"),
-        }
+        market = await fetch_market_overview() or {}
     except Exception as e:
-        return {"regime": "SIDEWAYS", "confidence": 0.5, "fear_greed": 50, "fg_label": "Neutral",
-                "btc_dom": None, "market_change_24h": None, "error": str(e)[:120]}
+        market = {"error": str(e)[:120]}
+    try:
+        from app.services.event_engine import get_all_events
+        ev_out = await get_all_events()
+        events = ev_out.get("events", []) if isinstance(ev_out, dict) else []
+    except Exception as e:
+        activity_log.log("error", f"Event fetch failed: {str(e)[:120]}", level="warn")
+        events = []
+    try:
+        from app.services.event_engine import fetch_crypto_news
+        news = await fetch_crypto_news() or []
+    except Exception:
+        news = []
+
+    regime = market.get("market_regime") or {}
+    fg = market.get("fear_greed") or {}
+    glob = market.get("global") or {}
+    return {
+        "regime": regime.get("regime", "SIDEWAYS"),
+        "confidence": regime.get("confidence", 0.5),
+        "fear_greed": fg.get("value", 50),
+        "fg_label": fg.get("classification", "Neutral"),
+        "btc_dom": glob.get("btc_dominance"),
+        "market_change_24h": glob.get("market_cap_change_24h"),
+        "market": market,
+        "events": events,
+        "news": news,
+        "event_count": len(events),
+        "news_count": len(news),
+    }
 
 
 async def _agent_cycle():
@@ -287,66 +309,98 @@ async def _agent_cycle():
 
 
 async def _process_unlock(unlock, ctx: Dict) -> Dict:
-    """Per-event multi-factor reasoning with position-aware hedging."""
+    """Per-event multi-signal composite scoring + position-aware hedging.
+
+    Runs the 11-factor signal engine (8 event categories + regime + sector +
+    sentiment), commits a prediction when the composite forecast materially
+    changes, and tops up the on-chain USDC hedge to the policy-bounded target.
+    """
     days = max(1, int((unlock.unlock_date.replace(tzinfo=None) - datetime.utcnow()).total_seconds() // 86400))
     pct_supply = unlock.total_supply_percent or 0.0
-    regime = ctx["regime"]
 
-    risk = _risk_score_for_unlock(pct_supply, days, regime)
+    # Detect cliff and recipient from the unlock metadata where available
+    recipient = "investor"
+    is_cliff = False
+    if hasattr(unlock, "category"):
+        cat = (getattr(unlock, "category", "") or "").lower()
+        if "cliff" in cat: is_cliff = True
+        if "team" in cat: recipient = "investor/team"
+        elif "foundation" in cat: recipient = "foundation"
+        elif "ecosystem" in cat: recipient = "ecosystem"
+
+    # ─ Run the 11-factor signal engine ───────────────────────────────────
+    composite = score_token(
+        token=unlock.token_symbol,
+        pct_supply=pct_supply,
+        days_until=days,
+        recipient=recipient,
+        is_cliff=is_cliff,
+        events=ctx.get("events", []),
+        market_overview=ctx.get("market", {}),
+        news=ctx.get("news", []),
+    )
+
+    risk = int(round(composite.composite_score))
     strategy = _strategy_for(risk)
-    predicted_impact = _predicted_impact(pct_supply, regime, days)
-    confidence = round(min(0.92, 0.55 + (risk / 200) + (0.05 if days <= 3 else 0.0)), 3)
+    predicted_impact = composite.predicted_impact_pct
+    confidence = composite.confidence
     pos = position_state.get(unlock.token_symbol)
 
-    # SCAN entry: structured analysis
+    # ─ SCAN entry: composite score summary ────────────────────────────────
     activity_log.log(
         "scan",
-        f"{unlock.token_symbol}: {pct_supply}% supply in {days}d · regime {regime} → risk {risk} → {strategy.replace('_',' ')}",
+        f"{unlock.token_symbol} · composite {composite.composite_score}/100 ({composite.risk_tier}) · {pct_supply}% supply in {days}d → {strategy.replace('_',' ')}",
         detail={
             "token": unlock.token_symbol,
+            "composite_score": composite.composite_score,
+            "risk_tier": composite.risk_tier,
+            "sector": composite.sector,
             "pct_supply": pct_supply,
             "days_until": days,
-            "regime": regime,
-            "risk_score": risk,
             "strategy": strategy,
             "predicted_impact": predicted_impact,
             "confidence": confidence,
             "existing_hedge_usd": pos["hedged_usd"],
+            "top_drivers": composite.top_drivers,
         },
     )
 
-    # No action below threshold
-    if risk < 35:
-        return {"committed": 0, "hedged": 0, "usd_deployed": 0.0}
-
-    # REASONING entry: explain the multi-factor decision
-    rationale_parts = [
-        f"{pct_supply}% supply (impact factor {round(pct_supply*16,1)})",
-        f"{days}d to event (urgency mult {_time_urgency(days):.2f}×)",
-        f"{regime} regime (mult {_regime_multiplier(regime):.2f}×)",
-        f"conf {int(confidence*100)}%",
-    ]
-    if pos["hedged_usd"] > 0:
-        rationale_parts.append(f"existing hedge ${int(pos['hedged_usd'])}")
-
+    # ─ SIGNAL_BREAKDOWN: per-factor contribution table ────────────────────
+    # This is the "show your work" moment — every factor with score & weight
+    breakdown_lines = [f"{s.name}: {s.score}/100 ×{s.weight} = {s.contribution}" for s in composite.signals]
     activity_log.log(
-        "reasoning",
-        f"{unlock.token_symbol} analysis: {' · '.join(rationale_parts)} → predicted 7d impact {predicted_impact}% → {strategy.replace('_',' ')}",
+        "signal_breakdown",
+        f"{unlock.token_symbol} 11-factor score: top drivers " + ", ".join(composite.top_drivers),
         detail={
             "token": unlock.token_symbol,
-            "factors": {
-                "supply_pct": pct_supply,
-                "supply_factor": round(pct_supply*16, 1),
-                "days_until": days,
-                "urgency_multiplier": _time_urgency(days),
-                "regime": regime,
-                "regime_multiplier": _regime_multiplier(regime),
-                "confidence": confidence,
-                "existing_hedge_usd": pos["hedged_usd"],
-            },
-            "predicted_impact_pct": predicted_impact,
+            "composite_score": composite.composite_score,
+            "signals": [{
+                "name": s.name, "score": s.score, "weight": s.weight,
+                "contribution": s.contribution, "detail": s.detail,
+            } for s in composite.signals],
+            "top_drivers": composite.top_drivers,
+        },
+    )
+
+    ACTION_THRESHOLD = 15
+    if risk < ACTION_THRESHOLD:
+        activity_log.log(
+            "hold_position",
+            f"{unlock.token_symbol} composite {risk} below action threshold ({ACTION_THRESHOLD}) — monitoring only",
+            detail={"token": unlock.token_symbol, "composite_score": composite.composite_score},
+        )
+        return {"committed": 0, "hedged": 0, "usd_deployed": 0.0}
+
+    # ─ REASONING entry: rationale chain from the signal engine ───────────
+    activity_log.log(
+        "reasoning",
+        " · ".join(composite.rationale_chain[:2]),
+        detail={
+            "token": unlock.token_symbol,
+            "rationale_chain": composite.rationale_chain,
             "strategy": strategy,
             "strategy_description": STRATEGY_DESC[strategy],
+            "composite": serialize_composite(composite),
         },
     )
 
@@ -371,7 +425,7 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
             confidence=confidence,
             var_95=round(predicted_impact * 1.7, 2),
             cvar_95=round(predicted_impact * 2.1, 2),
-            regime=regime,
+            regime=ctx.get("regime", "SIDEWAYS"),
             unlock_pct_supply=pct_supply,
             unlock_date=unlock.unlock_date.isoformat(),
             commit_hash=commit_hash,
@@ -412,7 +466,7 @@ async def _process_unlock(unlock, ctx: Dict) -> Dict:
     hedged_count = 0
     usd_deployed = 0.0
     if risk >= HEDGE_MIN_RISK and treasury_service.is_configured():
-        target = _target_hedge_usd(risk, days, regime, confidence)
+        target = _target_hedge_usd(risk, days, ctx.get("regime", "SIDEWAYS"), confidence)
         gap = target - pos["hedged_usd"]
         activity_log.log(
             "position_check",

@@ -1192,6 +1192,7 @@ function App() {
   const [selectedEvent,setSelectedEvent] = useState(null)
   const [agentActivity,setAgentActivity] = useState({loop:null,events:[]})
   const [treasuryData,setTreasuryData] = useState(null)
+  const [agentMetrics,setAgentMetrics] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1411,13 +1412,15 @@ function App() {
     let cancelled = false
     const pull = async () => {
       try {
-        const [a,t] = await Promise.all([
+        const [a,t,m] = await Promise.all([
           fetch(`${API}/api/agent/activity?limit=80`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/treasury`).then(r=>r.json()).catch(()=>null),
+          fetch(`${API}/api/agent/metrics`).then(r=>r.json()).catch(()=>null),
         ])
         if(cancelled) return
         if(a) setAgentActivity(a)
         if(t) setTreasuryData(t)
+        if(m) setAgentMetrics(m)
       } catch(e) { /* ignore */ }
     }
     pull()
@@ -2324,6 +2327,7 @@ function App() {
           regime_adjust:<TrendingUp size={13} color="var(--purple)"/>,
           scan_summary:<Layers size={13} color="var(--cyan)"/>,
           scan:<Activity size={13} color="var(--blue)"/>,
+          signal_breakdown:<BarChart3 size={13} color="var(--purple)"/>,
           reasoning:<Cpu size={13} color="var(--purple)"/>,
           correlation:<BarChart3 size={13} color="var(--yellow)"/>,
           commit:<Lock size={13} color="var(--purple)"/>,
@@ -2423,6 +2427,109 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
               </div>
             </div>
           )}
+
+          {/* Performance metrics — institutional dashboard */}
+          {agentMetrics && agentMetrics.predictions_revealed > 0 && (
+            <div className="sec">
+              <div className="sh">
+                <h2><BarChart3 size={16} color="var(--purple)"/> Performance Metrics · prediction track record</h2>
+                <span style={{fontSize:11,color:'var(--text3)'}}>Brier · hit rate · MAE · Sharpe — same metrics quant desks use</span>
+              </div>
+              <div className="btg">
+                <div className="bts" title={agentMetrics.interpretation?.hit_rate_pct}>
+                  <div className="bv" style={{color:agentMetrics.hit_rate_pct>=60?'var(--green)':agentMetrics.hit_rate_pct>=40?'var(--yellow)':'var(--red)'}}>{agentMetrics.hit_rate_pct}%</div>
+                  <div className="bl">Hit Rate (±5%)</div>
+                </div>
+                <div className="bts" title={agentMetrics.interpretation?.brier_score}>
+                  <div className="bv" style={{color:agentMetrics.brier_score<=0.15?'var(--green)':agentMetrics.brier_score<=0.25?'var(--yellow)':'var(--red)'}}>{agentMetrics.brier_score}</div>
+                  <div className="bl">Brier Score</div>
+                </div>
+                <div className="bts" title={agentMetrics.interpretation?.mean_abs_error_pct}>
+                  <div className="bv">{agentMetrics.mean_abs_error_pct}pp</div>
+                  <div className="bl">Mean Abs Error</div>
+                </div>
+                <div className="bts" title={agentMetrics.interpretation?.mean_signed_error_pct}>
+                  <div className="bv" style={{color:Math.abs(agentMetrics.mean_signed_error_pct||0)<2?'var(--green)':'var(--yellow)'}}>{agentMetrics.mean_signed_error_pct>0?'+':''}{agentMetrics.mean_signed_error_pct}pp</div>
+                  <div className="bl">Signed Bias</div>
+                </div>
+                <div className="bts" title={agentMetrics.interpretation?.sharpe_like}>
+                  <div className="bv" style={{color:'var(--purple)'}}>{agentMetrics.sharpe_like}</div>
+                  <div className="bl">Consistency</div>
+                </div>
+                <div className="bts" title={agentMetrics.interpretation?.max_error_pct}>
+                  <div className="bv" style={{color:'var(--red)'}}>{agentMetrics.max_error_pct}pp</div>
+                  <div className="bl">Worst Miss</div>
+                </div>
+              </div>
+              {agentMetrics.sector_exposure?.total_usd > 0 && (
+                <div className="crd" style={{cursor:'default',marginTop:14,padding:14,borderLeft:'3px solid var(--cyan)'}}>
+                  <div style={{fontSize:11,fontWeight:700,color:'var(--text3)',textTransform:'uppercase',marginBottom:8}}>Sector Concentration Risk</div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {Object.entries(agentMetrics.sector_exposure?.by_sector||{}).map(([sec,d])=>(
+                      <div key={sec} style={{background:'var(--bg3)',padding:'8px 12px',borderRadius:'var(--r3)',minWidth:90}}>
+                        <div style={{fontSize:10,color:'var(--text3)',fontWeight:600,textTransform:'uppercase'}}>{sec}</div>
+                        <div style={{fontSize:14,fontWeight:800,color:d.pct>=50?'var(--red)':d.pct>=30?'var(--yellow)':'var(--text)'}}>${d.usd.toLocaleString()}</div>
+                        <div style={{fontSize:10,color:'var(--text3)'}}>{d.pct}% of book</div>
+                      </div>
+                    ))}
+                  </div>
+                  {agentMetrics.sector_exposure?.max_concentration_pct >= 50 && (
+                    <div style={{fontSize:11,color:'var(--red)',marginTop:8,fontWeight:600}}>⚠ Concentration warning: {agentMetrics.sector_exposure.top_sector} represents {agentMetrics.sector_exposure.max_concentration_pct}% of total hedge book</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Latest signal decomposition — show the agent's "thinking" */}
+          {(() => {
+            const lastSignal = events.find(e => e.kind === 'signal_breakdown')
+            if(!lastSignal?.detail?.signals) return null
+            const sigs = lastSignal.detail.signals
+            const composite = lastSignal.detail.composite_score
+            const tier = composite>=70?'CRITICAL':composite>=55?'HIGH':composite>=40?'ELEVATED':composite>=25?'MODERATE':'LOW'
+            const tierClr = composite>=55?'var(--red)':composite>=40?'var(--yellow)':composite>=25?'var(--blue)':'var(--green)'
+            return (
+              <div className="sec">
+                <div className="sh">
+                  <h2><Cpu size={16} color="var(--purple)"/> Latest Decision · 11-factor signal decomposition</h2>
+                  <span style={{fontSize:11,color:'var(--text3)'}}>Token: <strong>{lastSignal.detail.token}</strong> · composite <strong style={{color:tierClr}}>{composite}/100 ({tier})</strong></span>
+                </div>
+                <div className="crd" style={{cursor:'default',padding:14,borderLeft:`3px solid ${tierClr}`}}>
+                  <div style={{fontSize:11,color:'var(--text3)',marginBottom:10,lineHeight:1.5}}>Every signal contributes a weighted score. Top 3 drivers shown in bold. This is how Gauntlet, Chaos Labs, and quant desks decompose composite risk into auditable factors.</div>
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                    {sigs.sort((a,b)=>b.contribution-a.contribution).map((s,i)=>{
+                      const isTop3 = i < 3
+                      const barW = Math.min(100, (s.score / 100) * 100)
+                      const barClr = s.score>=70?'var(--red)':s.score>=50?'var(--yellow)':s.score>=30?'var(--blue)':'var(--green)'
+                      return (
+                        <div key={s.name} style={{display:'grid',gridTemplateColumns:'140px 1fr 70px 80px',gap:10,alignItems:'center',padding:'6px 0',borderBottom:i<sigs.length-1?'1px solid var(--border)':'none'}}>
+                          <div style={{fontSize:11,fontWeight:isTop3?700:500,color:isTop3?'var(--text)':'var(--text2)'}}>{s.name.replace(/_/g,' ')}</div>
+                          <div style={{position:'relative',height:6,background:'var(--bg3)',borderRadius:3,overflow:'hidden'}}>
+                            <div style={{position:'absolute',top:0,left:0,height:'100%',width:`${barW}%`,background:barClr,borderRadius:3,transition:'width .3s ease'}}/>
+                          </div>
+                          <div style={{fontSize:10,color:'var(--text3)',textAlign:'right'}}>×{s.weight}</div>
+                          <div style={{fontSize:11,fontWeight:700,textAlign:'right',color:isTop3?'var(--text)':'var(--text3)'}}>{s.score}/100<br/><span style={{fontSize:9,color:'var(--text3)',fontWeight:400}}>contrib {s.contribution}</span></div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div style={{marginTop:10,fontSize:10,color:'var(--text3)',display:'flex',justifyContent:'space-between',padding:'8px 0',borderTop:'2px solid var(--border)'}}>
+                    <span style={{fontWeight:700,color:'var(--text)'}}>Composite (weighted sum)</span>
+                    <span style={{fontSize:14,fontWeight:900,color:tierClr}}>{composite}/100</span>
+                  </div>
+                  <details style={{marginTop:8,fontSize:11}}>
+                    <summary style={{cursor:'pointer',color:'var(--text2)'}}>Show per-signal evidence</summary>
+                    <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:4,fontSize:10,color:'var(--text2)'}}>
+                      {sigs.map(s=>(
+                        <div key={'d-'+s.name}><strong>{s.name.replace(/_/g,' ')}:</strong> {s.detail}</div>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Live activity feed */}
           <div className="sec">

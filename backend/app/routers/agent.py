@@ -191,6 +191,21 @@ async def get_agent_activity(limit: int = 50):
     }
 
 
+@router.get("/metrics")
+async def get_agent_metrics():
+    """
+    Institutional performance metrics for the agent's prediction track record:
+    Brier score (calibration), hit rate, MAE, signed bias, Sharpe-like
+    consistency, max single-prediction error, sector concentration.
+    """
+    from app.services.prediction_oracle import oracle
+    from app.services.performance_tracker import compute_metrics
+    from app.services.treasury_service import treasury_service
+    hedges = treasury_service.recent_hedges(limit=100)
+    metrics = compute_metrics(list(oracle.predictions.values()), hedges)
+    return metrics
+
+
 @router.get("/treasury")
 async def get_treasury_passport():
     """
