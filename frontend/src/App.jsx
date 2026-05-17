@@ -361,6 +361,15 @@ const strategyForRisk = s => s>=80?'FULL_EXIT':s>=55?'SHORT_HEDGE':s>=35?'DCA_EX
 const stratCls = s => ({FULL_EXIT:'s-exit',REDUCE_POSITION:'s-reduce',SHORT_HEDGE:'s-hedge',OPTIONS_PUT:'s-put',DCA_EXIT:'s-dca'})[s]||''
 const barClr = s => s>=70?'var(--red)':s>=45?'var(--yellow)':'var(--green)'
 const SECTOR_COLORS = {L1:'#3b82f6',L2:'#8b5cf6',DeFi:'#059669',Gaming:'#d97706',Infra:'#0891b2',Stable:'#6b7280',Altcoin:'#ec4899',Other:'#6b7280'}
+const buildSectorSummary = tokens => tokens.reduce((acc,t)=>{
+  const sector = t.sector || 'Other'
+  if(!acc[sector]) acc[sector] = {count:0,avg_change_24h:0,total_market_cap:0}
+  acc[sector].count += 1
+  acc[sector].avg_change_24h += num(t.change_24h)
+  acc[sector].total_market_cap += num(t.market_cap)
+  return acc
+},{})
+const finalizeSectorSummary = sectors => Object.fromEntries(Object.entries(sectors).map(([k,v])=>[k,{...v,avg_change_24h:Number((v.avg_change_24h/Math.max(v.count,1)).toFixed(2))}]))
 const KITE_LINKS = {
   docs:'https://docs.gokite.ai/',
   network:'https://docs.gokite.ai/kite-chain/1-getting-started/network-information',
@@ -403,6 +412,26 @@ const DEMO_PORTFOLIO = {
     {token_symbol:'APT',amount:15,current_price:6.5,value_usd:97.5},
   ]
 }
+const DEMO_MARKET_TOKENS = [
+  {rank:1,symbol:'BTC',name:'Bitcoin',price:103240,change_24h:1.4,change_7d:4.8,market_cap:2040000000000,volume_24h:42500000000,sector:'L1',sparkline_7d:[98600,99400,100100,99650,101200,102450,103240]},
+  {rank:2,symbol:'ETH',name:'Ethereum',price:3875,change_24h:2.1,change_7d:6.3,market_cap:467000000000,volume_24h:21900000000,sector:'L1',sparkline_7d:[3610,3660,3725,3690,3780,3835,3875]},
+  {rank:5,symbol:'SOL',name:'Solana',price:184.2,change_24h:3.7,change_7d:8.1,market_cap:86400000000,volume_24h:5200000000,sector:'L1',sparkline_7d:[168,171,176,174,179,181,184]},
+  {rank:6,symbol:'BNB',name:'BNB',price:642.5,change_24h:.6,change_7d:2.4,market_cap:93800000000,volume_24h:1780000000,sector:'L1',sparkline_7d:[626,630,635,633,638,640,642]},
+  {rank:7,symbol:'XRP',name:'XRP',price:2.43,change_24h:-.8,change_7d:1.2,market_cap:137000000000,volume_24h:3900000000,sector:'L1',sparkline_7d:[2.38,2.41,2.45,2.46,2.44,2.42,2.43]},
+  {rank:8,symbol:'DOGE',name:'Dogecoin',price:.214,change_24h:5.2,change_7d:9.4,market_cap:31800000000,volume_24h:2600000000,sector:'Altcoin',sparkline_7d:[.193,.197,.201,.198,.205,.211,.214]},
+  {rank:9,symbol:'ADA',name:'Cardano',price:.78,change_24h:-1.1,change_7d:-2.8,market_cap:27700000000,volume_24h:860000000,sector:'L1',sparkline_7d:[.80,.79,.81,.78,.77,.78,.78]},
+  {rank:11,symbol:'AVAX',name:'Avalanche',price:38.6,change_24h:2.8,change_7d:5.7,market_cap:15800000000,volume_24h:910000000,sector:'L1',sparkline_7d:[36.1,36.8,37.2,36.9,37.8,38.1,38.6]},
+  {rank:14,symbol:'LINK',name:'Chainlink',price:18.7,change_24h:1.9,change_7d:7.6,market_cap:11800000000,volume_24h:750000000,sector:'Infra',sparkline_7d:[17.1,17.3,17.8,17.6,18.1,18.4,18.7]},
+  {rank:24,symbol:'SUI',name:'Sui',price:3.1,change_24h:-2.4,change_7d:3.2,market_cap:9300000000,volume_24h:1140000000,sector:'L1',sparkline_7d:[3.02,3.08,3.16,3.22,3.17,3.13,3.10]},
+  {rank:36,symbol:'APT',name:'Aptos',price:6.5,change_24h:-1.7,change_7d:-4.1,market_cap:4100000000,volume_24h:318000000,sector:'L1',sparkline_7d:[6.78,6.71,6.62,6.59,6.48,6.54,6.50]},
+  {rank:42,symbol:'ARB',name:'Arbitrum',price:.98,change_24h:-3.2,change_7d:-6.9,market_cap:4200000000,volume_24h:612000000,sector:'L2',sparkline_7d:[1.05,1.03,1.01,1.00,.99,.97,.98]},
+  {rank:45,symbol:'OP',name:'Optimism',price:1.62,change_24h:-2.1,change_7d:-3.5,market_cap:2400000000,volume_24h:221000000,sector:'L2',sparkline_7d:[1.68,1.65,1.66,1.61,1.60,1.63,1.62]},
+  {rank:51,symbol:'TIA',name:'Celestia',price:5.9,change_24h:4.6,change_7d:11.2,market_cap:3100000000,volume_24h:490000000,sector:'Infra',sparkline_7d:[5.28,5.34,5.45,5.51,5.66,5.78,5.90]},
+  {rank:62,symbol:'SEI',name:'Sei',price:.53,change_24h:6.4,change_7d:12.8,market_cap:2100000000,volume_24h:265000000,sector:'L1',sparkline_7d:[.47,.48,.49,.50,.51,.52,.53]},
+  {rank:70,symbol:'IMX',name:'Immutable',price:1.84,change_24h:2.5,change_7d:7.1,market_cap:2900000000,volume_24h:122000000,sector:'Gaming',sparkline_7d:[1.72,1.75,1.78,1.76,1.80,1.82,1.84]},
+  {rank:94,symbol:'DYDX',name:'dYdX',price:1.24,change_24h:-4.8,change_7d:-9.3,market_cap:910000000,volume_24h:155000000,sector:'DeFi',sparkline_7d:[1.37,1.34,1.30,1.29,1.25,1.22,1.24]},
+  {rank:98,symbol:'PYTH',name:'Pyth Network',price:.28,change_24h:-.9,change_7d:2.1,market_cap:1020000000,volume_24h:98000000,sector:'Infra',sparkline_7d:[.274,.277,.281,.279,.283,.282,.280]},
+]
 const EVENT_META = {
   token_unlock:{label:'Token Unlock',color:'var(--yellow)',bg:'var(--yellow-bg)',icon:<Unlock size={16}/>,why:'scheduled supply shock'},
   dex_volume_spike:{label:'DEX Volume',color:'var(--cyan)',bg:'var(--cyan-bg)',icon:<BarChart3 size={16}/>,why:'abnormal pool activity'},
@@ -950,7 +979,12 @@ function App() {
   }
 
   const regime=market?.market_regime;const glob=market?.global||{};const fg=market?.fear_greed||{}
-  const sectors=market?.sectors||{};const topTokens=market?.top_tokens||[];const anomalies=market?.volume_anomalies||[]
+  const marketTokens = (market?.top_tokens&&market.top_tokens.length>0) ? market.top_tokens : DEMO_MARKET_TOKENS
+  const sectors=Object.keys(market?.sectors||{}).length ? market.sectors : finalizeSectorSummary(buildSectorSummary(marketTokens))
+  const topTokens=marketTokens
+  const anomalies=market?.volume_anomalies||[]
+  const topGainers = (market?.top_gainers&&market.top_gainers.length>0) ? market.top_gainers : [...topTokens].sort((a,b)=>num(b.change_24h)-num(a.change_24h)).slice(0,5)
+  const topLosers = (market?.top_losers&&market.top_losers.length>0) ? market.top_losers : [...topTokens].sort((a,b)=>num(a.change_24h)-num(b.change_24h)).slice(0,5)
   const activeEventCount = (eventStream?.total_events || 0) + (unlocks?.length || 0)
   const threatLevel = eventStream?.threat_level || market?.event_intelligence?.threat_level || 'NORMAL'
 
@@ -1358,11 +1392,11 @@ function App() {
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:14}}>
             <div className="sec"><div className="sh"><h2><TrendingUp size={16} color="var(--green)"/> Top Gainers</h2></div>
               <div className="tw"><table><thead><tr><th>Token</th><th>Price</th><th>24h</th></tr></thead><tbody>
-                {(market?.top_gainers||[]).map((t,i)=>(<tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}><td style={{fontWeight:600}}>{t.symbol}</td><td>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td><td style={{color:'var(--green)',fontWeight:700}}>+{t.change_24h}%</td></tr>))}
+                {topGainers.map((t,i)=>(<tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}><td style={{fontWeight:600}}>{t.symbol}</td><td>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td><td style={{color:'var(--green)',fontWeight:700}}>+{t.change_24h}%</td></tr>))}
               </tbody></table></div></div>
             <div className="sec"><div className="sh"><h2><TrendingDown size={16} color="var(--red)"/> Top Losers</h2></div>
               <div className="tw"><table><thead><tr><th>Token</th><th>Price</th><th>24h</th></tr></thead><tbody>
-                {(market?.top_losers||[]).map((t,i)=>(<tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}><td style={{fontWeight:600}}>{t.symbol}</td><td>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td><td style={{color:'var(--red)',fontWeight:700}}>{t.change_24h}%</td></tr>))}
+                {topLosers.map((t,i)=>(<tr key={i} className="clickable" onClick={()=>setSelectedToken(t)}><td style={{fontWeight:600}}>{t.symbol}</td><td>${t.price>=1?t.price?.toFixed(2):t.price?.toFixed(4)}</td><td style={{color:'var(--red)',fontWeight:700}}>{t.change_24h}%</td></tr>))}
               </tbody></table></div></div>
           </div>
 
