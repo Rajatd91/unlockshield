@@ -36,6 +36,12 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    contract_address = os.getenv("CONTRACT_ADDRESS", "")
+    contract_explorer = (
+        f"https://testnet.kitescan.ai/address/{contract_address}"
+        if contract_address else None
+    )
+
     return {
         "name": "UnlockShield",
         "tagline": "Verifiable DeFi stress oracle for on-chain capital risk",
@@ -43,6 +49,8 @@ async def root():
         "chain": "Kite AI (Testnet)",
         "chain_id": 2368,
         "explorer": "https://testnet.kitescan.ai/",
+        "contract_address": contract_address or "not_configured",
+        "contract_explorer": contract_explorer,
         "docs": "/docs",
     }
 
@@ -50,9 +58,11 @@ async def root():
 @app.get("/health")
 async def health():
     from app.services.kite_attestation import kite_service
+    contract_address = os.getenv("CONTRACT_ADDRESS", "")
     return {
         "status": "healthy",
         "kite_connected": kite_service.is_connected(),
+        "contract_configured": bool(contract_address),
     }
 
 
