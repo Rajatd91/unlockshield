@@ -2374,6 +2374,36 @@ function App() {
           boot:<Cpu size={13} color="var(--green)"/>,
           idle:<Clock size={13} color="var(--text3)"/>,
         }
+        const hasKind = (...kinds) => events.some(e => kinds.includes(e.kind))
+        const stageStatus = (done, current) => done ? 'complete' : current ? 'current' : 'pending'
+        const pipelineStages = [
+          {n:'Monitor', tag:'LIVE DATA', icon:<Globe size={14}/>, status:stageStatus(hasKind('regime_check','scan_summary'), hasKind('cycle_start'))},
+          {n:'Score', tag:'12-FACTOR', icon:<BarChart3 size={14}/>, status:stageStatus(hasKind('signal_breakdown'), hasKind('scan'))},
+          {n:'Simulate', tag:'RS-GARCH', icon:<Activity size={14}/>, status:stageStatus(hasKind('stress_run'), hasKind('reasoning'))},
+          {n:'Commit', tag:'KITE ORACLE', icon:<Lock size={14}/>, status:stageStatus(hasKind('commit','skip_commit'), hasKind('stress_run'))},
+          {n:'Execute', tag:'USDC POLICY', icon:<Zap size={14}/>, status:stageStatus(hasKind('hedge','hedge_blocked','position_check','policy_floor'), hasKind('commit','skip_commit'))},
+          {n:'Verify', tag:'REPUTATION', icon:<CheckCircle size={14}/>, status:stageStatus(hasKind('reveal','treasury_sync') || !!latestHedge, hasKind('hedge'))},
+        ]
+        const latestSignal = events.find(e => e.kind === 'signal_breakdown')
+        const latestPolicyEvent = events.find(e => ['hedge','hedge_blocked','policy_floor','position_check'].includes(e.kind))
+        const policy = passport?.policy || {}
+        const checkRisk = Number(latestHedge?.risk_score ?? latestPolicyEvent?.detail?.risk_score ?? latestPolicyEvent?.detail?.model_risk ?? latestSignal?.detail?.composite_score ?? 0)
+        const checkAmount = Number(latestHedge?.amount_usd ?? latestPolicyEvent?.detail?.top_up_usd ?? latestPolicyEvent?.detail?.attempted_usd ?? 0)
+        const policyChecks = [
+          {label:'Risk threshold', value:`${Math.round(checkRisk)} ≥ ${policy.min_risk_score || 25}`, pass:checkRisk >= Number(policy.min_risk_score || 25), note:'model conviction clears on-chain minimum'},
+          {label:'Trade size', value:`${fmtUsd(checkAmount)} ≤ ${fmtUsd(policy.max_single_trade_usd || 1000)}`, pass:checkAmount <= Number(policy.max_single_trade_usd || 1000), note:'single trade bound'},
+          {label:'Daily headroom', value:`${fmtUsd(passport?.headroom_usd)} available`, pass:Number(passport?.headroom_usd || 0) >= Math.max(checkAmount, 1), note:'24h budget gate'},
+          {label:'Treasury balance', value:`${fmtUsd(passport?.balance_usd)} USDC`, pass:Number(passport?.balance_usd || 0) >= Math.max(checkAmount, 1), note:'settlement liquidity'},
+        ]
+        const cumulativeBars = [...hedges].slice(0,12).reverse()
+        const maxBar = Math.max(1, ...cumulativeBars.map(h => Number(h.amount_usd || 0)))
+        const performanceTiles = [
+          {label:'Trades', value:passport?.trades ?? '—', color:'var(--purple)'},
+          {label:'USDC Settled', value:fmtUsd(passport?.deployed_usd), color:'var(--green)'},
+          {label:'Headroom', value:fmtUsd(passport?.headroom_usd), color:'var(--cyan)'},
+          {label:'Hit Rate', value:agentMetrics?.predictions_revealed ? `${agentMetrics.hit_rate_pct}%` : 'Calibrating', color:agentMetrics?.predictions_revealed ? 'var(--green)' : 'var(--yellow)'},
+          {label:'Brier', value:agentMetrics?.predictions_revealed ? agentMetrics.brier_score : 'Pending', color:'var(--blue)'},
+        ]
         return (
         <div className="fade">
           {/* Live agent banner */}
@@ -2439,6 +2469,76 @@ function App() {
               </div>
               <div style={{marginTop:12,fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
                 Agent Passport use in this MVP: your Passport wallet is the delegator/payment identity; the MetaMask operator signs the current treasury transactions. The production Kite Passport SDK can map this manifest into official passkey-approved sessions; today the same budget and execution controls are enforced by AgentTreasury on Kite.
+              </div>
+            </div>
+          </div>
+
+          {/* Agent operating system */}
+          <div className="sec">
+            <div className="sh">
+              <h2><Cpu size={16} color="var(--purple)"/> Agent Operating System</h2>
+              <span style={{fontSize:11,color:'var(--text3)'}}>Pipeline · policy gates · live performance</span>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))',gap:14}}>
+              <div className="crd" style={{cursor:'default',padding:16,borderLeft:'3px solid var(--purple)'}}>
+                <div style={{fontSize:11,fontWeight:800,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:12}}>Autonomous pipeline</div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(82px,1fr))',gap:8}}>
+                  {pipelineStages.map((s,i)=>{
+                    const done = s.status === 'complete'
+                    const active = s.status === 'current'
+                    const clrStage = done ? 'var(--green)' : active ? 'var(--purple)' : 'var(--text3)'
+                    return (
+                      <div key={s.n} style={{position:'relative',padding:'10px 8px',borderRadius:'var(--r3)',background:done?'var(--green-bg)':active?'var(--purple-bg)':'var(--bg3)',border:`1px solid ${done?'#bbf7d0':active?'#ddd6fe':'var(--border)'}`,minHeight:96}}>
+                        {i<5 && <div style={{position:'absolute',right:-8,top:22,width:8,height:1,background:done?'var(--green)':'var(--border2)'}}/>}
+                        <div style={{width:28,height:28,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',background:done?'var(--green)':active?'var(--purple)':'var(--bg)',color:done||active?'#fff':'var(--text3)',marginBottom:8}}>{s.icon}</div>
+                        <div style={{fontSize:12,fontWeight:900,color:'var(--text)'}}>{s.n}</div>
+                        <div style={{fontSize:8,fontWeight:800,color:clrStage,letterSpacing:'.4px',marginTop:4}}>{s.tag}</div>
+                        <div style={{fontSize:9,color:'var(--text3)',marginTop:5}}>{done?'done':active?'active':'waiting'}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5,marginTop:12}}>
+                  This is the live agent loop, not a static diagram: market context flows into factor scoring, RS-GARCH stress, Kite commit, policy-bound USDC execution, then reputation tracking.
+                </div>
+              </div>
+
+              <div className="crd" style={{cursor:'default',padding:16,borderLeft:'3px solid var(--green)'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:800,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px'}}>Pre-execution policy</div>
+                  <span style={{fontSize:9,fontWeight:800,color:policyChecks.every(c=>c.pass)?'var(--green)':'var(--yellow)',background:policyChecks.every(c=>c.pass)?'var(--green-bg)':'var(--yellow-bg)',borderRadius:999,padding:'3px 7px'}}>
+                    {policyChecks.every(c=>c.pass)?'EXECUTE READY':'GATED'}
+                  </span>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                  {policyChecks.map(c=>(
+                    <div key={c.label} style={{display:'grid',gridTemplateColumns:'20px 1fr',gap:8,alignItems:'start',padding:'8px 9px',borderRadius:'var(--r3)',background:c.pass?'var(--green-bg)':'var(--yellow-bg)',border:`1px solid ${c.pass?'#bbf7d0':'#fed7aa'}`}}>
+                      {c.pass ? <CheckCircle size={15} color="var(--green)"/> : <Clock size={15} color="var(--yellow)"/>}
+                      <div>
+                        <div style={{fontSize:11,fontWeight:800,color:'var(--text)'}}>{c.label}</div>
+                        <div style={{fontSize:11,color:c.pass?'var(--green)':'var(--yellow)',fontWeight:700,marginTop:2}}>{c.value}</div>
+                        <div style={{fontSize:9,color:'var(--text3)',marginTop:2}}>{c.note}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="crd" style={{cursor:'default',padding:16,borderLeft:'3px solid var(--cyan)'}}>
+                <div style={{fontSize:11,fontWeight:800,color:'var(--text3)',textTransform:'uppercase',letterSpacing:'.5px',marginBottom:10}}>Performance card</div>
+                <div style={{height:66,display:'flex',alignItems:'flex-end',gap:4,padding:'8px 0 10px',borderBottom:'1px solid var(--border)',marginBottom:10}}>
+                  {cumulativeBars.length ? cumulativeBars.map((h,i)=>(
+                    <div key={`${h.id}-${i}`} title={`${h.token} ${h.action}: ${fmtUsd(h.amount_usd)}`} style={{flex:1,minWidth:5,height:`${Math.max(12,(Number(h.amount_usd||0)/maxBar)*52)}px`,borderRadius:'4px 4px 0 0',background:i===cumulativeBars.length-1?'var(--green)':'linear-gradient(180deg,#10b981,#a7f3d0)'}}/>
+                  )) : <div style={{fontSize:11,color:'var(--text3)',alignSelf:'center'}}>Waiting for hedge history</div>}
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:8}}>
+                  {performanceTiles.map(t=>(
+                    <div key={t.label} style={{background:'var(--bg3)',borderRadius:'var(--r3)',padding:'8px 9px'}}>
+                      <div style={{fontSize:10,color:'var(--text3)',fontWeight:700,textTransform:'uppercase'}}>{t.label}</div>
+                      <div style={{fontSize:15,fontWeight:900,color:t.color,marginTop:2}}>{t.value}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
