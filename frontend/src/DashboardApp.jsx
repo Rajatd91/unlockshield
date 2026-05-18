@@ -7,7 +7,7 @@ import {
   ArrowRight, Lock, Unlock, Play, ChevronUp, X, ArrowLeft, Bell, ChevronLeft
 } from 'lucide-react'
 
-const API = import.meta.env.VITE_API_URL || ''
+const API = (import.meta.env.VITE_API_URL || 'https://unlockshield-api.onrender.com').replace(/\/$/, '')
 const KITE_FALLBACKS = {
   passport: '0xD232F1F3c569644F455254A637a90b60408e3f32',
   oracle: '0xD2d642Ea44973d90Bb0a6f403e8A4815020Fdd79',
@@ -1280,9 +1280,10 @@ function App() {
     await new Promise(r=>setTimeout(r,600));setScanStep(1)
     toast('Running Stress Test','Simulating thousands of price paths...','y')
     try{
-      const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),45000)
+      const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),18000)
       const r=await fetch(`${API}/api/agent/scan?limit=10&days_ahead=30`,{method:'POST',signal:ctrl.signal})
       clearTimeout(timer)
+      if(!r.ok) throw new Error(`scan_http_${r.status}`)
       const d=await r.json()
       setScanStep(2);toast('Policy Check','Evaluating bounded hedge and LP actions...','y')
       await new Promise(r=>setTimeout(r,500));setScanStep(3)
