@@ -1626,7 +1626,15 @@ function App() {
           <div className="hero-visual">
             <button
               type="button"
-              onClick={()=>setTab('agent')}
+              onClick={()=>{
+                setTab('agent')
+                // Wait for React to re-render the agent view, then smooth-scroll
+                // the tabs row into view so the user sees the live agent panel.
+                setTimeout(()=>{
+                  const anchor = document.getElementById('tabs-anchor')
+                  if(anchor) anchor.scrollIntoView({behavior:'smooth', block:'start'})
+                }, 80)
+              }}
               aria-label="Open Live Agent dashboard"
               className="hero-agent-cta"
             >
@@ -1739,8 +1747,8 @@ function App() {
       </div>
 
       {/* TABS */}
-      <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+      <div className="tabs" id="tabs-anchor">
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'agent',i:<Cpu size={13}/>,l:'Live Agent'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
