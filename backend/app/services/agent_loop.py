@@ -558,7 +558,7 @@ async def _process_candidate(c: Candidate, ctx: Dict, composite=None) -> Dict:
     # For non-unlock candidates, convert composite event pressure into a
     # synthetic shock size so large/small caps are stress-tested too.
     stress_runs = 0
-    if composite.composite_score >= 35:
+    if composite.composite_score >= tier_cfg.hedge_min_risk:
         try:
             event_shock_pct = pct_supply if pct_supply > 0 else round(
                 max(0.75, min(4.0, composite.composite_score / 16.0)),
