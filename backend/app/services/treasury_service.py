@@ -121,9 +121,9 @@ class TreasuryService:
         try:
             latest = self.w3.eth.block_number
             from_block = max(0, latest - int(os.getenv("TREASURY_LOG_LOOKBACK_BLOCKS", "120000")))
-            executed_topic = self.w3.keccak(
+            executed_topic = _hex_with_prefix(self.w3.keccak(
                 text="HedgeExecuted(uint256,string,string,uint8,uint256,address,bytes32)"
-            ).hex()
+            ))
             logs = self.w3.eth.get_logs({
                 "address": Web3.to_checksum_address(self.treasury_address),
                 "fromBlock": from_block,
