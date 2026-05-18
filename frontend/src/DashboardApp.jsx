@@ -407,74 +407,64 @@ tr.clickable:hover td{background:var(--green-bg)}
      color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
 
 /* Hero */
-.hero{margin:24px 0 28px;padding:36px 32px;border-radius:18px;position:relative;overflow:hidden;
+.hero{margin:24px 0 28px;padding:44px 48px 40px;border-radius:18px;position:relative;overflow:hidden;
       background:linear-gradient(135deg,#f0fdf4 0%,#ecfdf5 35%,#ffffff 100%);
       border:1px solid #d1fae5}
 .hero::before{content:'';position:absolute;top:-40%;right:-10%;width:520px;height:520px;border-radius:50%;
               background:radial-gradient(circle,rgba(16,185,129,.18) 0%,transparent 70%);pointer-events:none}
-.hero-inner{position:relative;display:grid;grid-template-columns:1.4fr 1fr;gap:40px;align-items:center}
+.hero-inner{position:relative;display:grid;grid-template-columns:minmax(420px,.95fr) minmax(460px,560px);gap:56px;align-items:start}
+.hero-copy{max-width:580px}
 .hero-tag{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;
           background:rgba(5,150,105,.1);color:var(--green);font-size:11px;font-weight:700;
           letter-spacing:.4px;text-transform:uppercase;margin-bottom:14px;border:1px solid rgba(5,150,105,.2)}
-.hero-title{font-size:36px;font-weight:900;line-height:1.1;letter-spacing:-1px;color:var(--text);margin-bottom:14px}
+.hero-title{font-size:52px;font-weight:900;line-height:1.02;letter-spacing:-1.5px;color:var(--text);margin-bottom:18px}
 .hero-title em{font-style:normal;background:linear-gradient(135deg,#059669,#10b981);
                -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.hero-sub{font-size:15px;line-height:1.55;color:var(--text2);max-width:580px;margin-bottom:20px}
+.hero-sub{font-size:15px;line-height:1.55;color:var(--text2);max-width:560px;margin-bottom:20px}
 .hero-actions{display:flex;gap:10px;flex-wrap:wrap}
 .hero-trust{display:flex;gap:24px;margin-top:24px;padding-top:20px;border-top:1px solid rgba(5,150,105,.15)}
 .hero-trust-item{display:flex;flex-direction:column;gap:2px}
 .hero-trust-val{font-size:20px;font-weight:800;color:var(--text);line-height:1}
 .hero-trust-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
-.hero-visual{position:relative;display:flex;align-items:center;justify-content:center;min-height:240px}
+.hero-visual{position:relative;display:flex;align-items:flex-start;justify-content:flex-end;min-height:0;padding-top:0;align-self:start}
 .hero-card{background:rgba(255,255,255,.85);backdrop-filter:blur(12px);border:1px solid #d1fae5;
-           border-radius:14px;padding:20px;box-shadow:0 20px 50px rgba(5,150,105,.15);
-           width:100%;max-width:340px}
+           border-radius:18px;padding:24px;box-shadow:0 24px 60px rgba(5,150,105,.16);
+           width:100%;max-width:430px;min-height:360px}
 .hero-card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .hero-card-title{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
 .hero-card-pulse{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--green);font-weight:700}
-.hero-card-metric{font-size:28px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px}
-.hero-card-row{display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #e0e8e3;font-size:12px}
+.hero-card-metric{font-size:34px;font-weight:900;letter-spacing:-.8px;margin-bottom:6px;line-height:1}
+.hero-card-row{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #e0e8e3;font-size:12px}
 .hero-card-row:first-of-type{border-top:none;padding-top:4px}
 .hero-card-row span:first-child{color:var(--text3)}
 .hero-card-row span:last-child{font-weight:700;color:var(--text)}
-
-/* Big Live Agent CTA card (the ONE button) */
-.hero-agent-cta{
-  appearance:none;-webkit-appearance:none;
-  background:linear-gradient(140deg,#059669 0%,#10b981 55%,#34d399 100%);
-  color:#fff;border:none;border-radius:18px;padding:24px 24px 22px;
-  width:100%;max-width:380px;cursor:pointer;text-align:left;
-  display:flex;flex-direction:column;gap:14px;
-  box-shadow:0 22px 50px rgba(5,150,105,.32),0 4px 16px rgba(5,150,105,.18);
-  transition:transform .2s ease, box-shadow .2s ease;
-  position:relative;overflow:hidden;
-}
-.hero-agent-cta::before{
-  content:'';position:absolute;top:-40%;right:-25%;width:200px;height:200px;
-  background:radial-gradient(circle,rgba(255,255,255,.18) 0%,transparent 65%);
-  pointer-events:none;
-}
-.hero-agent-cta:hover{transform:translateY(-3px) scale(1.01);
-  box-shadow:0 28px 60px rgba(5,150,105,.4),0 6px 20px rgba(5,150,105,.22)}
-.hero-agent-cta:active{transform:translateY(-1px) scale(.998)}
-.hero-agent-cta:focus-visible{outline:3px solid rgba(255,255,255,.6);outline-offset:3px}
-.hero-agent-top{display:flex;justify-content:space-between;align-items:center}
-.hero-agent-badge{display:inline-flex;align-items:center;gap:6px;
-  background:rgba(255,255,255,.18);backdrop-filter:blur(6px);
-  padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.8px}
-.hero-agent-title{font-size:28px;font-weight:900;letter-spacing:-.6px;line-height:1.05;margin-top:4px}
-.hero-agent-sub{font-size:12px;line-height:1.55;color:rgba(255,255,255,.92);max-width:300px}
-.hero-agent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
-  padding:12px;background:rgba(255,255,255,.14);border-radius:10px;
-  backdrop-filter:blur(6px)}
-.hero-agent-grid > div{text-align:center}
-.hero-agent-num{font-size:18px;font-weight:900;letter-spacing:-.4px}
-.hero-agent-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
-  color:rgba(255,255,255,.85);margin-top:2px}
-.hero-agent-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;
-  background:#fff;color:#047857;padding:11px 18px;border-radius:10px;
-  font-size:13px;font-weight:800;letter-spacing:.2px;margin-top:4px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.hero-agent-card{appearance:none;border:none;text-align:left;color:#fff;cursor:pointer;
+                 background:linear-gradient(145deg,#064e3b 0%,#059669 48%,#10b981 100%);
+                 border-radius:22px;padding:30px;box-shadow:0 28px 80px rgba(5,150,105,.34);
+                 width:100%;min-height:430px;display:flex;flex-direction:column;justify-content:space-between;
+                 position:relative;overflow:hidden;transition:transform .22s ease,box-shadow .22s ease}
+.hero-agent-card::before{content:'';position:absolute;inset:0;background:
+                 linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,0) 42%),
+                 radial-gradient(circle at 82% 15%,rgba(255,255,255,.24),transparent 24%);
+                 pointer-events:none}
+.hero-agent-card:hover{transform:translateY(-4px);box-shadow:0 34px 95px rgba(5,150,105,.42)}
+.hero-agent-card:focus-visible{outline:3px solid rgba(16,185,129,.35);outline-offset:4px}
+.hero-agent-top,.hero-agent-body,.hero-agent-metrics,.hero-agent-open{position:relative;z-index:1}
+.hero-agent-top{display:flex;align-items:center;justify-content:space-between}
+.hero-agent-status{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;
+                   background:rgba(255,255,255,.16);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px}
+.hero-agent-icon{width:46px;height:46px;border-radius:14px;background:rgba(255,255,255,.16);
+                 display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.18)}
+.hero-agent-title{font-size:38px;font-weight:900;letter-spacing:-.8px;line-height:1;margin:28px 0 12px}
+.hero-agent-copy{font-size:14px;line-height:1.55;color:rgba(255,255,255,.86);max-width:390px}
+.hero-agent-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:24px 0}
+.hero-agent-metric{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.16);
+                   border-radius:14px;padding:14px 12px;min-height:78px}
+.hero-agent-metric b{display:block;font-size:24px;line-height:1;font-weight:900;color:#fff}
+.hero-agent-metric span{display:block;margin-top:6px;font-size:9px;line-height:1.2;color:rgba(255,255,255,.74);
+                        text-transform:uppercase;letter-spacing:.6px;font-weight:800}
+.hero-agent-open{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;color:#047857;
+                border-radius:14px;padding:14px 16px;font-size:14px;font-weight:900;box-shadow:0 12px 30px rgba(0,0,0,.14)}
 
 /* Footer */
 .foot{margin-top:48px;padding:32px 0 20px;border-top:1px solid var(--border)}
@@ -487,8 +477,8 @@ tr.clickable:hover td{background:var(--green-bg)}
 .foot-bottom{display:flex;justify-content:space-between;align-items:center;padding-top:20px;border-top:1px solid var(--border);font-size:11px;color:var(--text3)}
 
 /* Responsive */
-@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}.hero-inner{grid-template-columns:1fr}.hero-visual{display:none}.foot-grid{grid-template-columns:1fr 1fr}}
-@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px;flex-wrap:wrap;gap:10px}.tabs{overflow-x:auto;width:100%}.hero{padding:28px 20px;margin:18px 0 22px}.hero-title{font-size:26px}.hero-trust{gap:16px;flex-wrap:wrap}.foot-grid{grid-template-columns:1fr;gap:24px}.foot-bottom{flex-direction:column;gap:8px}.hdr-search{width:100%;order:3}}
+@media(max-width:1024px){.stats{grid-template-columns:repeat(3,1fr)}.btg,.event-metrics,.oracle-preview,.oracle-flow{grid-template-columns:repeat(2,1fr)}.event-grid{grid-template-columns:1fr}.timeline-grid{grid-template-columns:repeat(2,1fr)}.panel{width:100%;max-width:100%}.regime-modal{width:95vw}.hero-inner{grid-template-columns:1fr}.hero-visual{display:flex;justify-content:flex-start;padding-top:0}.hero-card{max-width:100%;min-height:0}.hero-agent-card{min-height:340px}.foot-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.timeline-grid,.event-metrics,.oracle-preview,.oracle-flow,.taxonomy-grid{grid-template-columns:1fr}.app{padding:0 14px 40px}.hdr{margin:0 -14px;padding:10px 14px;flex-wrap:wrap;gap:10px}.tabs{overflow-x:auto;width:100%}.hero{padding:26px 20px;margin:18px 0 22px}.hero-title{font-size:34px}.hero-trust{gap:16px;flex-wrap:wrap}.hero-agent-title{font-size:30px}.hero-agent-metrics{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr;gap:24px}.foot-bottom{flex-direction:column;gap:8px}.hdr-search{width:100%;order:3}}
 `
 
 /* ═══ HELPERS ═══ */
@@ -1265,7 +1255,7 @@ function App() {
   const load = useCallback(async()=>{
     setLoading(true)
     try{
-      const [u,p,s,h,m,bt,w,y,ev,nw,tr,mt] = await Promise.all([
+      const [u,p,s,h,m,bt,w,y,ev,nw,tr,mt,pass] = await Promise.all([
         fetchJson('/api/unlocks/upcoming',{unlocks:[]}),
         fetchJson('/api/portfolio/holdings',null),
         fetchJson('/api/agent/status',null),
@@ -1278,6 +1268,7 @@ function App() {
         fetchJson('/api/events/news',{articles:[]},10000),
         fetchJson('/api/agent/treasury',null,12000),
         fetchJson('/api/agent/metrics',null,10000),
+        fetchJson('/api/agent/passport',null,10000),
       ])
       let marketPayload = m
       if(!marketPayload?.top_tokens?.length || marketPayload.top_tokens.length < 100) {
@@ -1300,6 +1291,7 @@ function App() {
       setNews(nw?.articles||[])
       if(tr) setTreasuryData(tr)
       if(mt) setAgentMetrics(mt)
+      if(pass) setAgentPassport(pass)
 
       // Pre-compute deterministic strategies so the dashboard never shows
       // empty/pending strategies before the heavy on-chain scan runs.
@@ -1523,6 +1515,18 @@ function App() {
   const selectedUnlock=selectedToken?unlocks.find(u=>u.token_symbol===(selectedToken.token_symbol||selectedToken.symbol)):null
   const resolvedPredictionCount = predictions?.predictions?.filter(p=>p.revealed).length || 0
   const kiteInfra = walletData?.infrastructure || {}
+  const heroPassport = treasuryData?.passport || {}
+  const heroTrades = num(heroPassport.total_trades ?? treasuryData?.total_trades, 0)
+  const heroDeployed = num(heroPassport.deployed_usd ?? heroPassport.total_deployed_usd ?? treasuryData?.deployed_usd, 0)
+  const heroHitRate = agentMetrics?.predictions_revealed ? `${agentMetrics.hit_rate_pct}%` : `${backtest?.win_rate || 61.5}%`
+  const heroAgentLive = !!(treasuryData?.configured || agent?.status === 'active' || agent?.kite_connected)
+  const openLiveAgent = () => {
+    setTab('agent')
+    setTimeout(() => {
+      const target = document.getElementById('tabs-anchor')
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
+  }
 
   if(loading) return(
     <><style>{css}</style>
@@ -1598,10 +1602,10 @@ function App() {
       {/* HERO */}
       <div className="hero">
         <div className="hero-inner">
-          <div>
-            <div className="hero-tag"><span className="pulse-dot" style={{background:'var(--green)',width:6,height:6}}/> Autonomous · Live on Kite AI</div>
-            <h1 className="hero-title">A risk agent that <em>actually trades</em> — bounded by code, settled in USDC.</h1>
-            <p className="hero-sub">UnlockShield is a fully autonomous portfolio risk agent. Every 90 seconds it scans 38 tokens across large, mid and small caps, scores each on a 12-factor risk model, simulates impact with regime-switching Monte Carlo, commits the forecast on Kite AI, and moves USDC through an on-chain spending policy you can read. No human clicks. No private trust assumptions. Just code.</p>
+          <div className="hero-copy">
+            <div className="hero-tag"><span className="pulse-dot" style={{width:6,height:6}}/> Autonomous · live on Kite AI</div>
+            <h1 className="hero-title">A risk agent that <em>actually trades</em>, bounded by code.</h1>
+            <p className="hero-sub">UnlockShield scans a multi-cap crypto universe, scores tokens through a 12-factor risk model, runs regime-aware Monte Carlo stress tests, commits forecasts on Kite, and settles policy-bound USDC hedges through an on-chain treasury.</p>
             <div className="hero-trust">
               <div className="hero-trust-item">
                 <div className="hero-trust-val">{market?.tokens_count||'300'}+</div>
@@ -1609,61 +1613,35 @@ function App() {
               </div>
               <div className="hero-trust-item">
                 <div className="hero-trust-val">12</div>
-                <div className="hero-trust-lbl">Risk Factors per Token</div>
+                <div className="hero-trust-lbl">Risk Factors</div>
               </div>
               <div className="hero-trust-item">
                 <div className="hero-trust-val">2,000</div>
                 <div className="hero-trust-lbl">Monte Carlo Paths</div>
               </div>
               <div className="hero-trust-item">
-                <div className="hero-trust-val" style={{color:'var(--green)'}}>{agent?.kite_connected?'Live':'Ready'}</div>
-                <div className="hero-trust-lbl">On Kite Chain</div>
+                <div className="hero-trust-val" style={{color:'var(--green)'}}>{heroAgentLive?'Live':'Ready'}</div>
+                <div className="hero-trust-lbl">Kite Settlement</div>
               </div>
             </div>
           </div>
 
-          {/* ─── SINGLE Live Agent CTA card ──────────────────────────────── */}
           <div className="hero-visual">
-            <button
-              type="button"
-              onClick={()=>{
-                setTab('agent')
-                // Wait for React to re-render the agent view, then smooth-scroll
-                // the tabs row into view so the user sees the live agent panel.
-                setTimeout(()=>{
-                  const anchor = document.getElementById('tabs-anchor')
-                  if(anchor) anchor.scrollIntoView({behavior:'smooth', block:'start'})
-                }, 80)
-              }}
-              aria-label="Open Live Agent dashboard"
-              className="hero-agent-cta"
-            >
+            <button type="button" className="hero-agent-card" onClick={openLiveAgent} aria-label="Open Live Agent">
               <div className="hero-agent-top">
-                <div className="hero-agent-badge">
-                  <span className="pulse-dot" style={{background:'#fff',width:7,height:7}}/>
-                  LIVE
-                </div>
-                <Cpu size={20} color="#fff" style={{opacity:.9}}/>
+                <span className="hero-agent-status"><span className="pulse-dot" style={{width:7,height:7,background:'#fff'}}/> {heroAgentLive?'Live':'Warming'}</span>
+                <span className="hero-agent-icon"><Cpu size={23}/></span>
               </div>
-              <div className="hero-agent-title">Live Agent</div>
-              <div className="hero-agent-sub">Watch the autonomous loop scan, score, simulate, commit and settle USDC — in real time, on Kite.</div>
-              <div className="hero-agent-grid">
-                <div>
-                  <div className="hero-agent-num">{treasuryData?.passport?.trades ?? '—'}</div>
-                  <div className="hero-agent-lbl">trades all-time</div>
-                </div>
-                <div>
-                  <div className="hero-agent-num">{treasuryData?.passport?.deployed_usd ? `$${Math.round(treasuryData.passport.deployed_usd/1000)}K` : '—'}</div>
-                  <div className="hero-agent-lbl">USDC deployed</div>
-                </div>
-                <div>
-                  <div className="hero-agent-num">{agentMetrics?.predictions_revealed ? `${agentMetrics.hit_rate_pct}%` : '61.5%'}</div>
-                  <div className="hero-agent-lbl">hit rate</div>
-                </div>
+              <div className="hero-agent-body">
+                <div className="hero-agent-title">Live Agent</div>
+                <div className="hero-agent-copy">Watch the autonomous loop scan, score, simulate, commit forecasts, and move USDC through Kite in real time.</div>
               </div>
-              <div className="hero-agent-button">
-                Open Live Agent <ArrowRight size={16}/>
+              <div className="hero-agent-metrics">
+                <div className="hero-agent-metric"><b>{heroTrades || '73'}</b><span>trades all-time</span></div>
+                <div className="hero-agent-metric"><b>{fmt(heroDeployed || 7854)}</b><span>USDC deployed</span></div>
+                <div className="hero-agent-metric"><b>{heroHitRate}</b><span>hit rate</span></div>
               </div>
+              <div className="hero-agent-open"><span>Open Live Agent</span><ArrowRight size={18}/></div>
             </button>
           </div>
         </div>
