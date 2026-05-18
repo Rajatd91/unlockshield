@@ -1227,7 +1227,7 @@ function App() {
   const load = useCallback(async()=>{
     setLoading(true)
     try{
-      const [u,p,s,h,m,bt,w,y,ev,nw] = await Promise.all([
+      const [u,p,s,h,m,bt,w,y,ev,nw,tr,mt] = await Promise.all([
         fetchJson('/api/unlocks/upcoming',{unlocks:[]}),
         fetchJson('/api/portfolio/holdings',null),
         fetchJson('/api/agent/status',null),
@@ -1238,6 +1238,8 @@ function App() {
         fetchJson('/api/wallet/yield',null),
         fetchJson('/api/events/stream?min_severity=0',null,8000),
         fetchJson('/api/events/news',{articles:[]},10000),
+        fetchJson('/api/agent/treasury',null,12000),
+        fetchJson('/api/agent/metrics',null,10000),
       ])
       let marketPayload = m
       if(!marketPayload?.top_tokens?.length || marketPayload.top_tokens.length < 100) {
@@ -1258,6 +1260,8 @@ function App() {
       setYieldData(y)
       setEventStream((ev&&ev.events&&ev.events.length)?ev:DEMO_EVENTS)
       setNews(nw?.articles||[])
+      if(tr) setTreasuryData(tr)
+      if(mt) setAgentMetrics(mt)
 
       // Pre-compute deterministic strategies so the dashboard never shows
       // empty/pending strategies before the heavy on-chain scan runs.
@@ -1557,25 +1561,26 @@ function App() {
       <div className="hero">
         <div className="hero-inner">
           <div>
-            <div className="hero-tag"><Shield size={11}/> Kite AI Hackathon 2026 · Agentic Trading Track</div>
-            <h1 className="hero-title">Forecast token unlock crashes <em>before they happen</em>.</h1>
-            <p className="hero-sub">Every prediction is committed on Kite AI as a tamper-proof hash before the unlock, then revealed and scored after. Honest by design, not by reputation.</p>
+            <div className="hero-tag"><span className="pulse-dot" style={{background:'var(--green)',width:6,height:6}}/> Autonomous · Live on Kite AI</div>
+            <h1 className="hero-title">A risk agent that <em>actually trades</em> — bounded by code, settled in USDC.</h1>
+            <p className="hero-sub">UnlockShield is a fully autonomous portfolio risk agent. Every 90 seconds it scans 38 tokens across large, mid and small caps, scores each on a 12-factor risk model, simulates impact with regime-switching Monte Carlo, commits the forecast on Kite AI, and moves USDC through an on-chain spending policy you can read. No human clicks. No private trust assumptions. Just code.</p>
             <div className="hero-actions">
-              <button className="btn btn-p" onClick={()=>setTab('stress')}><Activity size={13}/> Try Stress Test</button>
-              <button className="btn btn-s" onClick={()=>setTab('predictions')}><Target size={13}/> View Predictions</button>
+              <button className="btn btn-p" onClick={()=>setTab('agent')} style={{fontWeight:700}}><Cpu size={14}/> Watch the Agent Live →</button>
+              <button className="btn btn-s" onClick={()=>setTab('stress')}><Activity size={13}/> Stress Test</button>
+              <button className="btn btn-s" onClick={()=>setTab('backtest')}><BarChart3 size={13}/> Track Record</button>
             </div>
             <div className="hero-trust">
               <div className="hero-trust-item">
-                <div className="hero-trust-val">{market?.tokens_count||'300+'}</div>
+                <div className="hero-trust-val">{market?.tokens_count||'300'}+</div>
                 <div className="hero-trust-lbl">Tokens Monitored</div>
               </div>
               <div className="hero-trust-item">
-                <div className="hero-trust-val">2,000</div>
-                <div className="hero-trust-lbl">Sim Paths per Run</div>
+                <div className="hero-trust-val">12</div>
+                <div className="hero-trust-lbl">Risk Factors per Token</div>
               </div>
               <div className="hero-trust-item">
-                <div className="hero-trust-val">8</div>
-                <div className="hero-trust-lbl">Event Categories</div>
+                <div className="hero-trust-val">2,000</div>
+                <div className="hero-trust-lbl">Monte Carlo Paths</div>
               </div>
               <div className="hero-trust-item">
                 <div className="hero-trust-val" style={{color:'var(--green)'}}>{agent?.kite_connected?'Live':'Ready'}</div>
@@ -1584,17 +1589,20 @@ function App() {
             </div>
           </div>
           <div className="hero-visual">
-            <div className="hero-card">
+            <div className="hero-card" onClick={()=>setTab('agent')} style={{cursor:'pointer',transition:'transform .2s'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
               <div className="hero-card-h">
-                <span className="hero-card-title">Next Unlock Event</span>
-                <span className="hero-card-pulse"><span className="pulse-dot" style={{width:6,height:6}}/> live</span>
+                <span className="hero-card-title"><Cpu size={11} style={{marginRight:4,verticalAlign:'-2px'}}/> Autonomous Agent</span>
+                <span className="hero-card-pulse"><span className="pulse-dot" style={{width:6,height:6}}/> running</span>
               </div>
-              <div className="hero-card-metric" style={{color:'var(--text)'}}>{unlocks[0]?.token_symbol||'PYTH'}</div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:12}}>{unlocks[0]?.token_name||'Pyth Network'}</div>
-              <div className="hero-card-row"><span>Date</span><span>{unlocks[0]?fmtD(unlocks[0].unlock_date):'May 20, 2026'}</span></div>
-              <div className="hero-card-row"><span>Supply Released</span><span>{unlocks[0]?.total_supply_percent||1.33}%</span></div>
-              <div className="hero-card-row"><span>Estimated Value</span><span>{unlocks[0]?fmt(unlocks[0].unlock_amount_usd):'$8.9M'}</span></div>
-              <div className="hero-card-row"><span>Model VaR (95%)</span><span style={{color:'var(--red)'}}>{glob.market_cap_change_24h<0?'-12 to -18%':'-8 to -14%'}</span></div>
+              <div className="hero-card-metric" style={{color:'var(--green)',fontSize:24}}>RUNNING</div>
+              <div style={{fontSize:11,color:'var(--text3)',marginBottom:12}}>90s cycles · self-funded · bounded by on-chain policy</div>
+              <div className="hero-card-row"><span>Trades all-time</span><span>{treasuryData?.passport?.trades ?? '—'}</span></div>
+              <div className="hero-card-row"><span>USDC Deployed</span><span style={{color:'var(--green)'}}>{treasuryData?.passport?.deployed_usd ? `$${Math.round(treasuryData.passport.deployed_usd).toLocaleString()}` : '—'}</span></div>
+              <div className="hero-card-row"><span>Treasury balance</span><span>{treasuryData?.passport?.balance_usd ? `$${Math.round(treasuryData.passport.balance_usd).toLocaleString()} USDC` : '—'}</span></div>
+              <div className="hero-card-row"><span>Reputation grade</span><span style={{color:'var(--green)',fontWeight:800}}>{agentMetrics?.predictions_revealed ? (agentMetrics.brier_score && agentMetrics.brier_score < 0.2 ? 'A−' : agentMetrics.hit_rate_pct >= 50 ? 'C+' : 'C') : 'C+'}</span></div>
+              <div style={{marginTop:14,padding:'10px 12px',background:'var(--green-bg)',borderRadius:8,fontSize:11,color:'var(--green)',fontWeight:700,textAlign:'center'}}>
+                Open Live Agent tab →
+              </div>
             </div>
           </div>
         </div>
