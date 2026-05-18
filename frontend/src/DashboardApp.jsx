@@ -1244,6 +1244,14 @@ function App() {
   const [agentPassport,setAgentPassport] = useState(null)
   const [agentColdStart,setAgentColdStart] = useState(true)
   const [agentLastSync,setAgentLastSync] = useState(null)
+  const [tick,setTick] = useState(0)
+
+  // Ticks every 1s while user is on Live Agent tab — drives live countdown displays
+  useEffect(() => {
+    if(tab !== 'agent') return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [tab])
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1472,18 +1480,19 @@ function App() {
     let firstPull = true
     setAgentColdStart(true)
 
+    // Cache-bust each request so the browser can't serve stale JSON.
     const fetchWithTimeout = (url, ms=8000) => {
       const ctrl = new AbortController()
       const t = setTimeout(()=>ctrl.abort(), ms)
-      return fetch(url, {signal: ctrl.signal})
+      const cacheBust = `${url.includes('?')?'&':'?'}_=${Date.now()}`
+      return fetch(url + cacheBust, {signal: ctrl.signal, cache: 'no-store'})
         .then(r => r.ok ? r.json() : null)
         .catch(() => null)
         .finally(() => clearTimeout(t))
     }
 
     const pull = async () => {
-      // Use long timeout on first attempt to wake a sleeping Render backend
-      const ms = firstPull ? 90000 : 8000
+      const ms = firstPull ? 90000 : 12000
       const t0 = performance.now()
       const [a,t,m,p,pm,pass] = await Promise.all([
         fetchWithTimeout(`${API}/api/agent/activity?limit=80`, ms),
@@ -1502,8 +1511,13 @@ function App() {
       if(p) setAgentPortfolio(p)
       if(pm) setAgentPolymarket(pm)
       if(pass) setAgentPassport(pass)
-      setAgentLastSync(gotAnything ? {at:new Date().toISOString(), elapsed} : null)
-      if(gotAnything) setAgentColdStart(false)
+      // CRITICAL FIX: only update sync time when we got data. Don't null it
+      // on transient failures — that was causing "UI synced: —" to flicker
+      // even when polling was working most of the time.
+      if(gotAnything) {
+        setAgentLastSync({at: new Date().toISOString(), elapsed})
+        setAgentColdStart(false)
+      }
       firstPull = false
     }
     pull()
@@ -2532,7 +2546,31 @@ function App() {
                   <div>
                     <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}>Autonomous Agent · Kite AI Testnet</div>
                     <div style={{fontSize:20,fontWeight:900,color:loop?.running?'var(--green)':'var(--text)'}}>{loop?.running?'RUNNING':loop?.enabled?'starting…':'OFFLINE'}</div>
-                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}} title="Cycles since this Render instance booted. The on-chain treasury state (trades, balance) persists across deploys.">Cycles since boot: <strong>{loop?.cycles_completed||0}</strong> · Last cycle: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong> · UI synced: <strong>{agentLastSync?fmtAgo(agentLastSync.at):'—'}</strong></div>
+                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}} title="Cycles since this Render instance booted. The on-chain treasury state (trades, balance) persists across deploys.">
+                      {(() => {
+                        // tick is read so this re-renders every second
+                        void tick
+                        const interval = loop?.interval_seconds || 90
+                        const lastCycleMs = loop?.last_cycle_at ? Date.now() - new Date(loop.last_cycle_at).getTime() : null
+                        const secSinceCycle = lastCycleMs !== null ? Math.floor(lastCycleMs/1000) : null
+                        const secUntilNext = secSinceCycle !== null ? Math.max(0, interval - secSinceCycle) : null
+                        const fmtClock = s => {
+                          if(s === null || s === undefined) return '—'
+                          if(s < 60) return `${s}s`
+                          return `${Math.floor(s/60)}m ${s%60}s`
+                        }
+                        const syncMs = agentLastSync?.at ? Date.now() - new Date(agentLastSync.at).getTime() : null
+                        const syncSec = syncMs !== null ? Math.floor(syncMs/1000) : null
+                        return (
+                          <>
+                            Cycles since boot: <strong>{loop?.cycles_completed||0}</strong>
+                            {' · '}Last cycle: <strong>{fmtClock(secSinceCycle)} ago</strong>
+                            {' · '}Next cycle in <strong style={{color:'var(--green)'}}>{fmtClock(secUntilNext)}</strong>
+                            {' · '}UI synced: <strong>{syncSec !== null ? `${syncSec}s ago` : '—'}</strong>
+                          </>
+                        )
+                      })()}
+                    </div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -3018,19 +3056,31 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
               <div className="empty"><Cpu size={36} color="var(--text3)"/><p style={{fontWeight:600,marginTop:10}}>Agent warming up…</p><p>The autonomous loop starts on backend boot and produces its first decision within {loop?.interval_seconds||90}s.</p></div>
             ):(
               <div style={{maxHeight:480,overflowY:'auto',border:'1px solid var(--border)',borderRadius:'var(--r)',background:'var(--bg)'}}>
-                {events.map((e,i)=>(
-                  <div key={e.seq} style={{display:'flex',gap:10,padding:'10px 14px',borderBottom:i<events.length-1?'1px solid var(--border)':'none',alignItems:'flex-start'}}>
+                {(() => { void tick; return events.map((e,i)=>{
+                  const ageMs = Date.now() - new Date(e.timestamp).getTime()
+                  const ageSec = Math.max(0, Math.floor(ageMs/1000))
+                  const ageMin = Math.floor(ageSec/60)
+                  // visual freshness: <60s = LIVE, <10m = recent, else faded
+                  const isLive = ageSec < 60
+                  const isRecent = ageSec < 600
+                  const opacity = isRecent ? 1 : 0.55
+                  const ageLabel = ageSec < 60 ? `${ageSec}s ago` : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin/60)}h ago`
+                  return (
+                  <div key={e.seq} style={{display:'flex',gap:10,padding:'10px 14px',borderBottom:i<events.length-1?'1px solid var(--border)':'none',alignItems:'flex-start',opacity,background:isLive?'rgba(16,185,129,.06)':'transparent',transition:'background .3s'}}>
                     <div style={{flexShrink:0,marginTop:2}}>{kindIcon[e.kind]||<Activity size={13} color="var(--text3)"/>}</div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:12,color:levelColor[e.level]||'var(--text)',fontWeight:e.level==='success'||e.level==='error'?700:500,lineHeight:1.5}}>{e.message}</div>
-                      <div style={{fontSize:10,color:'var(--text3)',marginTop:2,display:'flex',gap:8,flexWrap:'wrap'}}>
+                      <div style={{fontSize:10,color:'var(--text3)',marginTop:2,display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
+                        {isLive && <span style={{background:'var(--green)',color:'#fff',padding:'1px 6px',borderRadius:3,fontWeight:700,letterSpacing:'.5px'}}>LIVE</span>}
+                        <span style={{fontWeight:600,color:isLive?'var(--green)':'var(--text3)'}}>{ageLabel}</span>
                         <span>{new Date(e.timestamp).toLocaleTimeString('en-US',{hour12:false})}</span>
                         <span style={{textTransform:'uppercase',letterSpacing:'.4px'}}>{e.kind.replace(/_/g,' ')}</span>
                         {(() => { const url = kiteScanUrl(e.tx_hash); return url ? <a href={url} target="_blank" rel="noopener" style={{color:'var(--green)',fontWeight:600,textDecoration:'none'}}>tx on KiteScan ↗</a> : null })()}
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })})()}
               </div>
             )}
           </div>
