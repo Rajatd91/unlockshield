@@ -212,32 +212,35 @@ def _predicted_impact(pct_supply: float, regime: str, days: int) -> float:
 
 # ─── Cycle ──────────────────────────────────────────────────────────────────
 
-async def _fetch_market_context() -> Dict:
-    """Pull market overview, events, and news for multi-signal scoring."""
-    market = {}
-    events: List[Dict] = []
-    news: List[Dict] = []
+async def _bounded(coro, timeout: float, default):
+    """Run a coroutine with a hard wall-clock timeout. Never blocks forever."""
     try:
-        market = await fetch_market_overview() or {}
-    except Exception as e:
-        market = {"error": str(e)[:120]}
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except (asyncio.TimeoutError, Exception):
+        return default
+
+
+async def _fetch_market_context() -> Dict:
+    """Pull market overview, events, and news for multi-signal scoring.
+    Every external call is wrapped in a hard timeout so the cycle can't hang."""
+    market = await _bounded(fetch_market_overview(), 15.0, {}) or {}
     try:
         from app.services.event_engine import get_all_events
-        ev_out = await get_all_events()
+        ev_out = await _bounded(get_all_events(), 12.0, {})
         events = ev_out.get("events", []) if isinstance(ev_out, dict) else []
     except Exception as e:
         activity_log.log("error", f"Event fetch failed: {str(e)[:120]}", level="warn")
         events = []
     try:
         from app.services.event_engine import fetch_crypto_news
-        news = await fetch_crypto_news() or []
+        news = await _bounded(fetch_crypto_news(), 8.0, []) or []
     except Exception:
         news = []
 
     polymarkets: List[Dict] = []
     polymarket_summary: Optional[Dict] = None
     try:
-        polymarkets = await fetch_active_crypto_markets(limit=20)
+        polymarkets = await _bounded(fetch_active_crypto_markets(limit=20), 8.0, []) or []
         polymarket_summary = market_tail_risk_score(polymarkets)
     except Exception:
         pass
@@ -288,10 +291,8 @@ async def _agent_cycle():
         )
 
     # ─ Step 2: Fetch upcoming unlocks within action window ────────────────
-    try:
-        unlocks = await fetch_upcoming_unlocks(days_ahead=14)
-    except Exception as e:
-        activity_log.log("error", f"Unlock fetch failed: {e}", level="error")
+    unlocks = await _bounded(fetch_upcoming_unlocks(days_ahead=14), 20.0, [])
+    if not isinstance(unlocks, list):
         unlocks = []
 
     # Polymarket signal (one log per cycle, market-wide)
@@ -896,9 +897,18 @@ async def _runner():
     )
     while True:
         try:
-            await _agent_cycle()
+            # Hard 120-second cycle budget. If a cycle exceeds this, it's
+            # aborted and the loop schedules the next one. This prevents
+            # any single hung external call from killing the agent.
+            await asyncio.wait_for(_agent_cycle(), timeout=120)
+        except asyncio.TimeoutError:
+            activity_log.log(
+                "cycle_timeout",
+                "Cycle exceeded 120s budget — aborted to keep loop alive. Next cycle in 30s.",
+                level="warn",
+            )
         except Exception as e:
-            activity_log.log("error", f"Cycle crashed: {e}", level="error")
+            activity_log.log("error", f"Cycle crashed: {str(e)[:140]}", level="error")
         await asyncio.sleep(LOOP_INTERVAL_SECONDS)
 
 

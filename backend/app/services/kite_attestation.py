@@ -143,7 +143,7 @@ class KiteAttestationService:
 
             signed = self.account.sign_transaction(tx)
             tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=15)
 
             prediction_count = self.contract.functions.commitCount().call()
             tx_hex = _hex_with_prefix(receipt.transactionHash)
@@ -187,7 +187,7 @@ class KiteAttestationService:
 
             signed = self.account.sign_transaction(tx)
             tx_hash = self.w3.eth.send_raw_transaction(signed.raw_transaction)
-            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=60)
+            receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash, timeout=15)
             commit_count = self.contract.functions.commitCount().call()
             tx_hex = _hex_with_prefix(receipt.transactionHash)
 
