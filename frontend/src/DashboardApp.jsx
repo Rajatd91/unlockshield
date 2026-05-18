@@ -1205,6 +1205,8 @@ function App() {
   const [agentPortfolio,setAgentPortfolio] = useState(null)
   const [agentPolymarket,setAgentPolymarket] = useState(null)
   const [agentPassport,setAgentPassport] = useState(null)
+  const [agentColdStart,setAgentColdStart] = useState(true)
+  const [agentLastSync,setAgentLastSync] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1419,28 +1421,47 @@ function App() {
     }
   }, [tab]) // eslint-disable-line
 
-  // Live Agent: poll activity feed and treasury passport every 5s when tab is open
+  // Live Agent: poll activity feed and treasury passport every 5s when tab is open.
+  // First call uses a long timeout to wake Render's free-tier service from sleep.
   useEffect(() => {
     if(tab !== 'agent') return
     let cancelled = false
+    let firstPull = true
+    setAgentColdStart(true)
+
+    const fetchWithTimeout = (url, ms=8000) => {
+      const ctrl = new AbortController()
+      const t = setTimeout(()=>ctrl.abort(), ms)
+      return fetch(url, {signal: ctrl.signal})
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .finally(() => clearTimeout(t))
+    }
+
     const pull = async () => {
-      try {
-        const [a,t,m,p,pm,pass] = await Promise.all([
-          fetch(`${API}/api/agent/activity?limit=80`).then(r=>r.json()).catch(()=>null),
-          fetch(`${API}/api/agent/treasury`).then(r=>r.json()).catch(()=>null),
-          fetch(`${API}/api/agent/metrics`).then(r=>r.json()).catch(()=>null),
-          fetch(`${API}/api/agent/portfolio`).then(r=>r.json()).catch(()=>null),
-          fetch(`${API}/api/agent/polymarket?limit=8`).then(r=>r.json()).catch(()=>null),
-          fetch(`${API}/api/agent/passport`).then(r=>r.json()).catch(()=>null),
-        ])
-        if(cancelled) return
-        if(a) setAgentActivity(a)
-        if(t) setTreasuryData(t)
-        if(m) setAgentMetrics(m)
-        if(p) setAgentPortfolio(p)
-        if(pm) setAgentPolymarket(pm)
-        if(pass) setAgentPassport(pass)
-      } catch(e) { /* ignore */ }
+      // Use long timeout on first attempt to wake a sleeping Render backend
+      const ms = firstPull ? 90000 : 8000
+      const t0 = performance.now()
+      const [a,t,m,p,pm,pass] = await Promise.all([
+        fetchWithTimeout(`${API}/api/agent/activity?limit=80`, ms),
+        fetchWithTimeout(`${API}/api/agent/treasury`, ms),
+        fetchWithTimeout(`${API}/api/agent/metrics`, ms),
+        fetchWithTimeout(`${API}/api/agent/portfolio`, ms),
+        fetchWithTimeout(`${API}/api/agent/polymarket?limit=8`, ms),
+        fetchWithTimeout(`${API}/api/agent/passport`, ms),
+      ])
+      const elapsed = ((performance.now() - t0)/1000).toFixed(1)
+      if(cancelled) return
+      const gotAnything = !!(a || t || m || p || pm || pass)
+      if(a) setAgentActivity(a)
+      if(t) setTreasuryData(t)
+      if(m) setAgentMetrics(m)
+      if(p) setAgentPortfolio(p)
+      if(pm) setAgentPolymarket(pm)
+      if(pass) setAgentPassport(pass)
+      setAgentLastSync(gotAnything ? {at:new Date().toISOString(), elapsed} : null)
+      if(gotAnything) setAgentColdStart(false)
+      firstPull = false
     }
     pull()
     const id = setInterval(pull, 5000)
@@ -2405,6 +2426,35 @@ function App() {
           {label:'Hit Rate', value:agentMetrics?.predictions_revealed ? `${agentMetrics.hit_rate_pct}%` : 'Calibrating', color:agentMetrics?.predictions_revealed ? 'var(--green)' : 'var(--yellow)'},
           {label:'Brier', value:agentMetrics?.predictions_revealed ? agentMetrics.brier_score : 'Pending', color:'var(--blue)'},
         ]
+        // Daily cap health: > 80% used = warning, > 95% = critical
+        const dailyCapUsed = Math.max(0, (Number(policy.daily_cap_usd||0) - Number(passport?.headroom_usd||0)))
+        const dailyCapPct = Number(policy.daily_cap_usd||0) > 0 ? Math.min(100, Math.round((dailyCapUsed/Number(policy.daily_cap_usd||0))*100)) : 0
+        // Stale agent: last hedge > 1 hour ago = warning
+        const lastHedgeTs = latestHedge ? new Date(latestHedge.timestamp*1000).getTime() : null
+        const minsSinceHedge = lastHedgeTs ? (Date.now() - lastHedgeTs)/60000 : null
+
+        // Cold-start state: no data has come back yet
+        if(agentColdStart && !loop && !passport) {
+          return (
+            <div className="fade">
+              <div className="sec">
+                <div className="crd" style={{background:'linear-gradient(135deg,#fefce8 0%,#fef9c3 100%)',border:'1px solid #fde68a',padding:24,cursor:'default',textAlign:'center'}}>
+                  <div style={{display:'flex',justifyContent:'center',marginBottom:14}}>
+                    <RefreshCw size={32} className="spin" color="var(--yellow)"/>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:800,marginBottom:6}}>Backend warming up…</div>
+                  <div style={{fontSize:13,color:'var(--text2)',lineHeight:1.6,maxWidth:540,margin:'0 auto'}}>
+                    The agent runs on Render's free tier which sleeps after 15 minutes of no inbound HTTP requests.
+                    First request after sleep takes ~30–60 seconds to wake the service. Subsequent polls are instant.
+                  </div>
+                  <div style={{fontSize:11,color:'var(--text3)',marginTop:12,fontWeight:600}}>
+                    Cold start typically completes in 60s · this page will refresh automatically
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
         return (
         <div className="fade">
           {/* Live agent banner */}
@@ -2418,7 +2468,7 @@ function App() {
                   <div>
                     <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase',letterSpacing:'.5px'}}>Autonomous Agent · Kite AI Testnet</div>
                     <div style={{fontSize:20,fontWeight:900,color:loop?.running?'var(--green)':'var(--text)'}}>{loop?.running?'RUNNING':loop?.enabled?'starting…':'OFFLINE'}</div>
-                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}} title="Cycles since this Render instance booted. The on-chain treasury state (trades, balance) persists across deploys.">Cycles since boot: <strong>{loop?.cycles_completed||0}</strong> · Last: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong></div>
+                    <div style={{fontSize:11,color:'var(--text2)',marginTop:3}} title="Cycles since this Render instance booted. The on-chain treasury state (trades, balance) persists across deploys.">Cycles since boot: <strong>{loop?.cycles_completed||0}</strong> · Last cycle: <strong>{fmtAgo(loop?.last_cycle_at)}</strong> · Interval: <strong>{loop?.interval_seconds||0}s</strong> · UI synced: <strong>{agentLastSync?fmtAgo(agentLastSync.at):'—'}</strong></div>
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
@@ -2426,6 +2476,30 @@ function App() {
                   <a className="btn btn-s btn-sm" href={passport?.treasury_explorer||treasuryExplorer} target="_blank" rel="noopener"><ExternalLink size={12}/> Treasury on KiteScan</a>
                 </div>
               </div>
+
+              {/* Daily cap status (visible when high) */}
+              {dailyCapPct >= 60 && (
+                <div style={{marginTop:14,padding:'10px 12px',borderRadius:'var(--r3)',background:dailyCapPct>=95?'#fef2f2':dailyCapPct>=80?'#fefce8':'#f0f9ff',border:`1px solid ${dailyCapPct>=95?'#fecaca':dailyCapPct>=80?'#fde68a':'#bae6fd'}`,fontSize:12,color:'var(--text2)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,flexWrap:'wrap'}}>
+                  <div style={{flex:1,minWidth:240}}>
+                    <div style={{fontWeight:800,marginBottom:4,color:dailyCapPct>=95?'var(--red)':dailyCapPct>=80?'var(--yellow)':'var(--blue)'}}>
+                      Daily cap {dailyCapPct}% used — {fmtUsd(dailyCapUsed)} of {fmtUsd(policy.daily_cap_usd)}
+                    </div>
+                    <div style={{fontSize:11,lineHeight:1.5}}>
+                      {dailyCapPct>=95?'Cap exhausted. All new hedges will be policy-blocked until the rolling 24h window resets at UTC midnight. This is the bounded autonomy contract working as designed.':dailyCapPct>=80?'Approaching daily limit. Smaller hedges only from here until the rolling window resets.':'Spending pace nominal — well within the 24h cap.'}
+                    </div>
+                  </div>
+                  <div style={{width:160,height:8,background:'var(--bg3)',borderRadius:4,overflow:'hidden'}}>
+                    <div style={{width:`${dailyCapPct}%`,height:'100%',background:dailyCapPct>=95?'var(--red)':dailyCapPct>=80?'var(--yellow)':'var(--blue)',transition:'width .4s'}}/>
+                  </div>
+                </div>
+              )}
+
+              {/* Stale hedge warning */}
+              {minsSinceHedge !== null && minsSinceHedge > 60 && (
+                <div style={{marginTop:10,padding:'10px 12px',borderRadius:'var(--r3)',background:'#fef9c3',border:'1px solid #fde68a',fontSize:11,lineHeight:1.5,color:'var(--text2)'}}>
+                  <strong style={{color:'var(--yellow)'}}>Last successful hedge {fmtAgo(new Date(lastHedgeTs).toISOString())}</strong> · most likely reason: daily cap fully used, or all candidates currently score below the on-chain risk floor of {policy.min_risk_score}. The loop is still running and committing predictions — only hedge execution is paused until conditions change.
+                </div>
+              )}
             </div>
           </div>
 

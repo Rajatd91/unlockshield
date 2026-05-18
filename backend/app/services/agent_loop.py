@@ -879,6 +879,7 @@ async def _auto_reveal_passed():
 
 
 _loop_task: Optional[asyncio.Task] = None
+_keepalive_task: Optional[asyncio.Task] = None
 
 
 async def _runner():
@@ -901,16 +902,39 @@ async def _runner():
         await asyncio.sleep(LOOP_INTERVAL_SECONDS)
 
 
+async def _keepalive():
+    """Hit our own public URL every 10 minutes to prevent Render's free-tier
+    sleep. The autonomous loop only makes OUTBOUND HTTP calls; Render only
+    counts inbound requests for the idle timer, so without this the service
+    sleeps after 15 min of inactivity even while the loop is running.
+
+    The self-ping must use the PUBLIC URL so the request enters the server
+    from outside and counts as inbound traffic.
+    """
+    import httpx
+    public_url = os.getenv("PUBLIC_BACKEND_URL", "https://unlockshield-api.onrender.com").rstrip("/")
+    # Wait a bit on startup so the loop boots cleanly first
+    await asyncio.sleep(60)
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                await client.get(f"{public_url}/health")
+        except Exception:
+            pass
+        await asyncio.sleep(600)  # 10 minutes — well under Render's 15-min sleep
+
+
 def start_agent_loop():
-    """Spawn the background task. Idempotent — safe to call multiple times.
+    """Spawn the background tasks. Idempotent — safe to call multiple times.
     Must be called from inside a running event loop (e.g. FastAPI startup)."""
-    global _loop_task
+    global _loop_task, _keepalive_task
     if not LOOP_ENABLED:
         activity_log.log("disabled", "Agent loop disabled via AGENT_LOOP_ENABLED")
         return
-    if _loop_task and not _loop_task.done():
-        return
-    _loop_task = asyncio.create_task(_runner())
+    if _loop_task is None or _loop_task.done():
+        _loop_task = asyncio.create_task(_runner())
+    if _keepalive_task is None or _keepalive_task.done():
+        _keepalive_task = asyncio.create_task(_keepalive())
 
 
 def loop_status() -> Dict:
