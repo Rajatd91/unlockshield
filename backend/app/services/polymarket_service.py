@@ -44,16 +44,18 @@ def _parse_outcome_prices(raw) -> List[float]:
 
 
 def _is_crypto_market(m: Dict) -> bool:
+    import re
     q = (m.get("question") or "").lower()
     slug = (m.get("slug") or "").lower()
-    crypto_words = (
-        "btc", "bitcoin", "eth", "ethereum", "solana", "sol ", " sol", "crypto",
+    text = f"{q} {slug}"
+    crypto_terms = (
+        "btc", "bitcoin", "eth", "ethereum", "solana", "sol", "crypto",
         "stablecoin", "usdc", "usdt", "defi", "depeg", "etf", "altcoin",
-        "memecoin", "doge", "pepe", "xrp", "ripple", "ada", "cardano",
-        "avax", "avalanche", "atom", "near", "polkadot", "dot ", "matic",
-        "polygon", "arbitrum", "arb ", "optimism", "op ", "kite",
+        "memecoin", "doge", "pepe", "xrp", "ripple", "cardano",
+        "avax", "avalanche", "atom", "near", "polkadot", "dot", "matic",
+        "polygon", "arbitrum", "arb", "optimism", "kite",
     )
-    return any(w in q or w in slug for w in crypto_words)
+    return any(re.search(rf"(^|[^a-z0-9]){re.escape(term)}([^a-z0-9]|$)", text) for term in crypto_terms)
 
 
 async def fetch_active_crypto_markets(limit: int = 20) -> List[Dict]:

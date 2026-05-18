@@ -287,6 +287,41 @@ async def _agent_cycle():
         detail={"candidates": len(candidates), "tiers": tier_breakdown},
     )
 
+    scored_candidates: List[Tuple[Candidate, object]] = []
+    for c in candidates:
+        composite = score_token(
+            token=c.token,
+            pct_supply=c.pct_supply,
+            days_until=c.days_until,
+            recipient=c.recipient,
+            is_cliff=c.is_cliff,
+            events=ctx.get("events", []),
+            market_overview=ctx.get("market", {}),
+            news=ctx.get("news", []),
+            polymarket_summary=ctx.get("polymarket_summary"),
+        )
+        scored_candidates.append((c, composite))
+
+    selected = _select_diversified_candidates(scored_candidates)
+    activity_log.log(
+        "portfolio_ranking",
+        "Selected diversified book: " + ", ".join(
+            f"{c.token} {comp.composite_score}/100" for c, comp in selected[:8]
+        ),
+        detail={
+            "selected": [
+                {
+                    "token": c.token,
+                    "tier": c.tier,
+                    "source": c.source,
+                    "score": comp.composite_score,
+                    "top_drivers": comp.top_drivers,
+                }
+                for c, comp in selected
+            ]
+        },
+    )
+
     # ─ Step 3: Correlation analysis (cluster of imminent unlocks) ─────────
     cluster = [u for u in unlocks if (u.total_supply_percent or 0) >= 0.5
                and 0 <= (u.unlock_date.replace(tzinfo=None) - datetime.utcnow()).days <= 7]
@@ -303,11 +338,11 @@ async def _agent_cycle():
     cycle_hedges = 0
     cycle_usd = 0.0
     cycle_stress_runs = 0
-    # Cap per cycle so we don't burn through the budget too fast
+    # Cap per cycle so we don't burn through the budget too fast.
     max_actions = 8
-    for c in candidates[:max_actions * 2]:
+    for c, composite in selected:
         try:
-            out = await _process_candidate(c, ctx)
+            out = await _process_candidate(c, ctx, composite=composite)
             if out:
                 cycle_predictions += out.get("committed", 0)
                 cycle_hedges += out.get("hedged", 0)
@@ -356,7 +391,43 @@ async def _agent_cycle():
     )
 
 
-async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
+def _select_diversified_candidates(
+    scored: List[Tuple[Candidate, object]],
+    max_total: int = 18,
+) -> List[Tuple[Candidate, object]]:
+    """Select a diversified candidate book instead of letting one event dominate."""
+    by_tier: Dict[str, List[Tuple[Candidate, object]]] = {"large": [], "mid": [], "small": []}
+    for item in scored:
+        by_tier.setdefault(item[0].tier, []).append(item)
+    for tier_items in by_tier.values():
+        tier_items.sort(key=lambda item: item[1].composite_score, reverse=True)
+
+    quotas = {"large": 5, "mid": 7, "small": 6}
+    selected: List[Tuple[Candidate, object]] = []
+    seen = set()
+
+    for tier, quota in quotas.items():
+        for item in by_tier.get(tier, [])[:quota]:
+            token = item[0].token
+            if token in seen:
+                continue
+            selected.append(item)
+            seen.add(token)
+
+    remaining = sorted(scored, key=lambda item: item[1].composite_score, reverse=True)
+    for item in remaining:
+        if len(selected) >= max_total:
+            break
+        token = item[0].token
+        if token in seen:
+            continue
+        selected.append(item)
+        seen.add(token)
+
+    return sorted(selected, key=lambda item: item[1].composite_score, reverse=True)
+
+
+async def _process_candidate(c: Candidate, ctx: Dict, composite=None) -> Dict:
     """Per-candidate multi-signal composite scoring + position-aware hedging.
 
     1. Runs the 12-factor signal engine (8 event categories + regime + sector
@@ -377,17 +448,18 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
     tier_cfg = TIERS.get(c.tier, TIERS["mid"])
 
     # ─ Run the 12-factor signal engine ───────────────────────────────────
-    composite = score_token(
-        token=token,
-        pct_supply=pct_supply,
-        days_until=days,
-        recipient=recipient,
-        is_cliff=is_cliff,
-        events=ctx.get("events", []),
-        market_overview=ctx.get("market", {}),
-        news=ctx.get("news", []),
-        polymarket_summary=ctx.get("polymarket_summary"),
-    )
+    if composite is None:
+        composite = score_token(
+            token=token,
+            pct_supply=pct_supply,
+            days_until=days,
+            recipient=recipient,
+            is_cliff=is_cliff,
+            events=ctx.get("events", []),
+            market_overview=ctx.get("market", {}),
+            news=ctx.get("news", []),
+            polymarket_summary=ctx.get("polymarket_summary"),
+        )
 
     # unlock reference for the rest of the function
     class _UnlockShim:
@@ -450,15 +522,20 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
         return {"committed": 0, "hedged": 0, "usd_deployed": 0.0, "stress_runs": 0}
 
     # ─ STRESS ENGINE: for high-conviction events, run real RS-GARCH MC ───
-    # Saves compute by only running for tokens above ELEVATED tier.
+    # For non-unlock candidates, convert composite event pressure into a
+    # synthetic shock size so large/small caps are stress-tested too.
     stress_runs = 0
-    if composite.composite_score >= 35 and pct_supply > 0 and c.source == "upcoming_unlock":
+    if composite.composite_score >= 35:
         try:
+            event_shock_pct = pct_supply if pct_supply > 0 else round(
+                max(0.75, min(4.0, composite.composite_score / 16.0)),
+                2,
+            )
             stress_result = await _run_real_stress_engine(
                 token=unlock.token_symbol,
-                unlock_pct=pct_supply,
+                unlock_pct=event_shock_pct,
                 days_until=days,
-                recipient=recipient,
+                recipient=recipient if pct_supply > 0 else "market_event",
                 is_cliff=is_cliff,
                 fear_greed=int(ctx.get("fear_greed", 50)),
                 regime_hint=ctx.get("regime", "SIDEWAYS"),
@@ -474,6 +551,9 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
                     f"RS-GARCH Monte Carlo · {unlock.token_symbol} · VaR(95) {stress_result.get('var_95',0):.1f}% · CVaR(95) {stress_result.get('cvar_95',0):.1f}% · {stress_result.get('n_paths',0)} paths",
                     detail={
                         "token": unlock.token_symbol,
+                        "tier": c.tier,
+                        "source": c.source,
+                        "event_shock_pct": event_shock_pct,
                         "var_95": stress_result.get("var_95"),
                         "cvar_95": stress_result.get("cvar_95"),
                         "median_return": stress_result.get("median_final_return"),
@@ -560,7 +640,15 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
     # ─ Hedge (tier-aware sizing, position-aware top-up) ─────────────────
     hedged_count = 0
     usd_deployed = 0.0
-    if risk >= tier_cfg.hedge_min_risk and treasury_service.is_configured():
+    policy_floor = None
+    try:
+        passport = treasury_service.passport()
+        policy_floor = (passport or {}).get("policy", {}).get("min_risk_score")
+    except Exception:
+        policy_floor = None
+    executable_floor = max(tier_cfg.hedge_min_risk, int(policy_floor or 0))
+
+    if risk >= executable_floor and treasury_service.is_configured():
         # Tier-specific base sizing × regime × urgency × confidence multipliers
         base = tier_cfg.base_hedge_usd * (risk / 50.0)
         target = round(min(
@@ -639,6 +727,18 @@ async def _process_candidate(c: Candidate, ctx: Dict) -> Dict:
                     tx_hash=receipt.tx_hash,
                     level="warn",
                 )
+    elif risk >= tier_cfg.hedge_min_risk and policy_floor and risk < policy_floor:
+        activity_log.log(
+            "policy_floor",
+            f"{unlock.token_symbol} reached model hedge threshold ({risk}) but on-chain policy requires ≥ {policy_floor}",
+            detail={
+                "token": unlock.token_symbol,
+                "model_risk": risk,
+                "tier_threshold": tier_cfg.hedge_min_risk,
+                "onchain_min_risk_score": policy_floor,
+            },
+            level="warn",
+        )
 
     return {
         "committed": committed_count,

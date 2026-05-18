@@ -148,12 +148,12 @@ async def get_agent_status():
         "kite_connected": kite_service.is_connected(),
         "kite_contract_address": contract_address or "not_configured",
         "kite_contract_explorer": contract_explorer,
-        "analysis_engine": "Quantitative reasoning layer + 5-factor stress model",
-        "risk_model": "5-factor weighted: Supply Shock (35%), Historical Pattern (25%), Recipient Type (20%), Market Regime (10%), Time Urgency (10%)",
+        "analysis_engine": "Quantitative reasoning layer + 12-factor portfolio risk model",
+        "risk_model": "12-factor weighted: unlock pressure, whale flow, DEX anomalies, stablecoin stress, lending risk, governance, regulation, macro, regime, sector contagion, sentiment, and prediction-market conviction",
         "capabilities": [
             "Full market surveillance (300+ tokens via CoinPaprika)",
             "Dynamic unlock monitoring (40+ tokens via Tokenomist + curated)",
-            "Multi-factor quantitative risk analysis",
+            "12-factor quantitative risk analysis",
             "6 hedge strategies (FULL_EXIT → HOLD) with execution plans",
             "Real-time market regime detection (5-signal model)",
             "Fear & Greed Index integration",
@@ -163,6 +163,7 @@ async def get_agent_status():
             "On-chain attestation on Kite AI blockchain",
             "Historical backtesting on 13+ real unlock events (2024-2025)",
             "Verifiable reputation tracking via smart contract",
+            "Policy-controlled USDC settlement through AgentTreasury",
         ],
         "data_sources": [
             "CoinPaprika (top 300 tokens — prices, volume, market cap, percentage changes)",
@@ -175,6 +176,47 @@ async def get_agent_status():
         "strategies": list({k: v["name"]} for k, v in __import__("app.services.risk_analyzer", fromlist=["STRATEGIES"]).STRATEGIES.items()),
         "total_hedges": len(get_hedge_history()),
         "total_value_protected": f"${get_total_value_protected():,.2f}",
+    }
+
+
+@router.get("/passport")
+async def get_agent_passport_manifest():
+    """
+    Kite Agent Passport compatibility manifest.
+
+    Official Passport currently centers on MCP/OAuth sessions and x402 payments.
+    This endpoint exposes the equivalent agent identity, session budget, policy
+    bounds, and payment rails that UnlockShield enforces on-chain today.
+    """
+    from app.services.treasury_service import treasury_service
+    passport = treasury_service.passport()
+    contract_address = os.getenv("CONTRACT_ADDRESS", "")
+    return {
+        "passport_mode": "Kite Agent Passport compatible",
+        "official_passport_note": "Ready to map into Kite Passport MCP/OAuth sessions when the account is provisioned.",
+        "agent_identity": {
+            "agent_address": (passport or {}).get("agent_address"),
+            "agent_explorer": (passport or {}).get("agent_explorer"),
+            "oracle_contract": contract_address,
+            "oracle_explorer": f"https://testnet.kitescan.ai/address/{contract_address}" if contract_address else None,
+        },
+        "delegated_authority": {
+            "treasury_address": (passport or {}).get("treasury_address"),
+            "treasury_explorer": (passport or {}).get("treasury_explorer"),
+            "policy": (passport or {}).get("policy"),
+            "headroom_usd": (passport or {}).get("headroom_usd"),
+        },
+        "payment_rail": {
+            "settlement_asset": "MockUSDC on Kite Testnet",
+            "usdc_address": (passport or {}).get("usdc_address"),
+            "chain": "Kite AI Testnet",
+            "chain_id": 2368,
+        },
+        "audit": {
+            "trades": (passport or {}).get("trades"),
+            "deployed_usd": (passport or {}).get("deployed_usd"),
+            "blocked": (passport or {}).get("blocked"),
+        },
     }
 
 

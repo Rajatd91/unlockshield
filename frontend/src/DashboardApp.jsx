@@ -387,6 +387,9 @@ tr.clickable:hover td{background:var(--green-bg)}
            border:1px solid var(--border);background:var(--bg);color:var(--text2);transition:all .15s}
 .news-pill:hover{border-color:var(--green)}
 .news-pill.on{background:var(--green);color:#fff;border-color:var(--green)}
+.tag{display:inline-flex;align-items:center;justify-content:center;padding:3px 8px;border-radius:999px;
+     background:var(--bg3);border:1px solid var(--border);font-size:10px;font-weight:700;
+     color:var(--text2);text-transform:uppercase;letter-spacing:.3px}
 
 /* Hero */
 .hero{margin:24px 0 28px;padding:36px 32px;border-radius:18px;position:relative;overflow:hidden;
@@ -1195,6 +1198,7 @@ function App() {
   const [agentMetrics,setAgentMetrics] = useState(null)
   const [agentPortfolio,setAgentPortfolio] = useState(null)
   const [agentPolymarket,setAgentPolymarket] = useState(null)
+  const [agentPassport,setAgentPassport] = useState(null)
   const TOKENS_PER_PAGE = 50
 
   const toast = useCallback((title,msg,type='g')=>{
@@ -1414,12 +1418,13 @@ function App() {
     let cancelled = false
     const pull = async () => {
       try {
-        const [a,t,m,p,pm] = await Promise.all([
+        const [a,t,m,p,pm,pass] = await Promise.all([
           fetch(`${API}/api/agent/activity?limit=80`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/treasury`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/metrics`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/portfolio`).then(r=>r.json()).catch(()=>null),
           fetch(`${API}/api/agent/polymarket?limit=8`).then(r=>r.json()).catch(()=>null),
+          fetch(`${API}/api/agent/passport`).then(r=>r.json()).catch(()=>null),
         ])
         if(cancelled) return
         if(a) setAgentActivity(a)
@@ -1427,6 +1432,7 @@ function App() {
         if(m) setAgentMetrics(m)
         if(p) setAgentPortfolio(p)
         if(pm) setAgentPolymarket(pm)
+        if(pass) setAgentPassport(pass)
       } catch(e) { /* ignore */ }
     }
     pull()
@@ -2318,6 +2324,7 @@ function App() {
         const hedges = treasuryData?.recent_hedges || []
         const treasuryReady = treasuryData?.configured && passport && !passport.error
         const fmtUsd = v => `$${Number(v||0).toLocaleString('en-US',{maximumFractionDigits:0})}`
+        const shortHash = h => h ? `${h.slice(0,10)}…${h.slice(-6)}` : 'not configured'
         const fmtAgo = ts => {
           if(!ts) return '—'
           const sec = Math.max(0,(Date.now()-new Date(ts).getTime())/1000)
@@ -2326,6 +2333,11 @@ function App() {
           return `${Math.round(sec/3600)}h ago`
         }
         const levelColor = {success:'var(--green)',warn:'var(--yellow)',error:'var(--red)',info:'var(--text2)'}
+        const latestHedge = hedges.find(h => h.tx_hash) || hedges[0]
+        const latestHedgeUrl = kiteScanUrl(latestHedge?.tx_hash)
+        const oracleExplorer = agentPassport?.agent_identity?.oracle_explorer || agent?.kite_contract_explorer
+        const treasuryExplorer = agentPassport?.delegated_authority?.treasury_explorer || passport?.treasury_explorer
+        const staleLoop = loop?.last_cycle_at && ((Date.now() - new Date(loop.last_cycle_at).getTime()) > (Math.max(loop?.interval_seconds||90,90) * 2500))
         const kindIcon = {
           cycle_start:<RefreshCw size={13} className="spin" color="var(--cyan)"/>,
           cycle_complete:<CheckCircle size={13} color="var(--green)"/>,
@@ -2371,6 +2383,46 @@ function App() {
                   <a className="btn btn-s btn-sm" href={passport?.agent_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Agent on KiteScan</a>
                   <a className="btn btn-s btn-sm" href={passport?.treasury_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Treasury on KiteScan</a>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Kite proof panel */}
+          <div className="sec">
+            <div className="sh">
+              <h2><Shield size={16} color="var(--green)"/> Kite Execution Proof</h2>
+              <span style={{fontSize:11,color:'var(--text3)'}}>Agent identity · oracle commits · USDC treasury settlement · latest hedge tx</span>
+            </div>
+            <div className="crd" style={{cursor:'default',padding:16,borderLeft:'3px solid var(--green)'}}>
+              {staleLoop && (
+                <div style={{marginBottom:12,padding:'10px 12px',borderRadius:'var(--r3)',background:'var(--yellow-bg)',border:'1px solid #fed7aa',color:'var(--yellow)',fontSize:12,fontWeight:700}}>
+                  Loop looks stale: last cycle was {fmtAgo(loop.last_cycle_at)}. Render may be redeploying or sleeping; refresh after 60 seconds.
+                </div>
+              )}
+              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+                <a href={oracleExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
+                  <div className="bl">Oracle Contract</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--purple)',fontFamily:'monospace'}}>{shortHash(agentPassport?.agent_identity?.oracle_contract || agent?.kite_contract_address)}</div>
+                  <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>commit-reveal ↗</div>
+                </a>
+                <a href={treasuryExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
+                  <div className="bl">Treasury Contract</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--cyan)',fontFamily:'monospace'}}>{shortHash(passport?.treasury_address || agentPassport?.delegated_authority?.treasury_address)}</div>
+                  <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>USDC vault ↗</div>
+                </a>
+                <a href={latestHedgeUrl||treasuryExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
+                  <div className="bl">Latest Hedge Tx</div>
+                  <div className="bv" style={{fontSize:13,color:latestHedgeUrl?'var(--green)':'var(--text3)',fontFamily:'monospace'}}>{latestHedgeUrl ? shortHash(latestHedge.tx_hash) : 'waiting'}</div>
+                  <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>{latestHedgeUrl ? `${latestHedge?.token || ''} ${latestHedge?.action || ''} ↗` : 'next trade will link here'}</div>
+                </a>
+                <div className="bts">
+                  <div className="bl">Passport Mode</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--green)'}}>{agentPassport?.passport_mode ? 'Ready' : 'Loading'}</div>
+                  <div style={{fontSize:10,color:'var(--text3)',fontWeight:700,marginTop:3}}>policy-bound identity</div>
+                </div>
+              </div>
+              <div style={{marginTop:12,fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
+                Agent Passport use in this MVP: identity, delegated budget, spending policy, USDC payment rail, and public audit surface. The production Kite Passport SDK can map this manifest into official user-authorized sessions; today the same controls are enforced by AgentTreasury on Kite.
               </div>
             </div>
           </div>
@@ -2595,7 +2647,7 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
             return (
               <div className="sec">
                 <div className="sh">
-                  <h2><Cpu size={16} color="var(--purple)"/> Latest Decision · 11-factor signal decomposition</h2>
+                  <h2><Cpu size={16} color="var(--purple)"/> Latest Decision · 12-factor signal decomposition</h2>
                   <span style={{fontSize:11,color:'var(--text3)'}}>Token: <strong>{lastSignal.detail.token}</strong> · composite <strong style={{color:tierClr}}>{composite}/100 ({tier})</strong></span>
                 </div>
                 <div className="crd" style={{cursor:'default',padding:14,borderLeft:`3px solid ${tierClr}`}}>
@@ -2634,28 +2686,41 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
             )
           })()}
 
-          {/* Latest RS-GARCH stress engine run */}
+          {/* Recent RS-GARCH stress engine runs */}
           {(() => {
-            const lastStress = events.find(e => e.kind === 'stress_run')
-            if(!lastStress?.detail) return null
-            const d = lastStress.detail
+            const stressEvents = events.filter(e => e.kind === 'stress_run' && e.detail).slice(0,6)
+            if(!stressEvents.length) return null
+            const latest = stressEvents[0].detail
             return (
               <div className="sec">
                 <div className="sh">
-                  <h2><Zap size={16} color="var(--purple)"/> Latest RS-GARCH Monte Carlo · {d.token}</h2>
-                  <span style={{fontSize:11,color:'var(--text3)'}}>Real stress engine output · 1,000 simulated paths</span>
+                  <h2><Zap size={16} color="var(--purple)"/> RS-GARCH Monte Carlo · portfolio stress book</h2>
+                  <span style={{fontSize:11,color:'var(--text3)'}}>{stressEvents.length} recent runs · latest {latest.token} · 1,000 simulated paths each</span>
                 </div>
                 <div className="crd" style={{cursor:'default',padding:14,borderLeft:'3px solid var(--purple)'}}>
-                  <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5,marginBottom:10}}>The agent triggers the full RS-GARCH stress engine (Bollerslev 1986, Merton 1976 jump-diffusion, Hamilton 1989 regime-switching) when composite risk ≥ 35. Below: actual simulation output, not a formula approximation.</div>
-                  <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8}}>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.var_95?.toFixed(1)}%</div><div className="bl">VaR(95)</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.cvar_95?.toFixed(1)}%</div><div className="bl">CVaR(95)</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{d.median_return?.toFixed(1)}%</div><div className="bl">Median Return</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--red)',fontSize:16}}>{d.max_drawdown_worst?.toFixed(1)}%</div><div className="bl">Worst Drawdown</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{((d.prob_loss_gt_10pct||0)*100).toFixed(0)}%</div><div className="bl">P(loss &gt; 10%)</div></div>
-                    <div className="bts"><div className="bv" style={{color:'var(--yellow)',fontSize:16}}>{((d.prob_loss_gt_20pct||0)*100).toFixed(0)}%</div><div className="bl">P(loss &gt; 20%)</div></div>
-                    <div className="bts"><div className="bv" style={{fontSize:16}}>{d.regime}</div><div className="bl">Detected Regime</div></div>
-                    <div className="bts"><div className="bv" style={{fontSize:16}}>{d.n_paths?.toLocaleString()}</div><div className="bl">Monte Carlo Paths</div></div>
+                  <div style={{fontSize:11,color:'var(--text2)',lineHeight:1.5,marginBottom:10}}>The agent runs the full RS-GARCH engine across large, mid, and small-cap candidates when composite risk clears the stress threshold. These rows are actual simulation outputs, not static examples.</div>
+                  <div className="tw">
+                    <table>
+                      <thead><tr><th>Token</th><th>Tier</th><th>Source</th><th>Shock</th><th>VaR(95)</th><th>CVaR(95)</th><th>Median</th><th>P(&gt;10%)</th><th>Regime</th></tr></thead>
+                      <tbody>
+                        {stressEvents.map((ev,i)=>{
+                          const d = ev.detail
+                          return (
+                            <tr key={`${d.token}-${ev.seq||i}`}>
+                              <td style={{fontWeight:800}}>{d.token}</td>
+                              <td><span className="tag">{d.tier||'mid'}</span></td>
+                              <td style={{fontSize:11,color:'var(--text2)'}}>{(d.source||'event').replace(/_/g,' ')}</td>
+                              <td style={{fontWeight:700,color:'var(--yellow)'}}>{Number(d.event_shock_pct||0).toFixed(2)}%</td>
+                              <td style={{fontWeight:800,color:'var(--red)'}}>{d.var_95?.toFixed(1)}%</td>
+                              <td style={{fontWeight:800,color:'var(--red)'}}>{d.cvar_95?.toFixed(1)}%</td>
+                              <td style={{fontWeight:700,color:'var(--yellow)'}}>{d.median_return?.toFixed(1)}%</td>
+                              <td>{((d.prob_loss_gt_10pct||0)*100).toFixed(0)}%</td>
+                              <td>{d.regime}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

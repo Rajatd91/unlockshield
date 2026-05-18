@@ -114,6 +114,30 @@ class TreasuryService:
     def is_configured(self) -> bool:
         return self.w3 is not None and self.treasury is not None and self.account is not None
 
+    def _hydrate_tx_hash_cache(self):
+        """Recover HedgeExecuted tx hashes from contract logs after a backend restart."""
+        if not self.is_configured():
+            return
+        try:
+            latest = self.w3.eth.block_number
+            from_block = max(0, latest - int(os.getenv("TREASURY_LOG_LOOKBACK_BLOCKS", "120000")))
+            executed_topic = self.w3.keccak(
+                text="HedgeExecuted(uint256,string,string,uint8,uint256,address,bytes32)"
+            ).hex()
+            logs = self.w3.eth.get_logs({
+                "address": Web3.to_checksum_address(self.treasury_address),
+                "fromBlock": from_block,
+                "toBlock": "latest",
+                "topics": [executed_topic],
+            })
+            for log in logs:
+                if len(log.topics) < 2:
+                    continue
+                hedge_id = int(log.topics[1].hex(), 16)
+                self._tx_hash_cache[hedge_id] = _hex_with_prefix(log.transactionHash)
+        except Exception as e:
+            print(f"hydrate tx cache failed: {str(e)[:160]}")
+
     def execute_hedge(
         self,
         token: str,
@@ -235,6 +259,8 @@ class TreasuryService:
             return []
         try:
             count = self.treasury.functions.historyCount().call()
+            if len(self._tx_hash_cache) < min(count, limit):
+                self._hydrate_tx_hash_cache()
             start = max(0, count - limit)
             out: List[Dict] = []
             for i in range(count - 1, start - 1, -1):
