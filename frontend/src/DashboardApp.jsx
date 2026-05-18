@@ -2450,7 +2450,7 @@ function App() {
               {/* Hedge history */}
               {hedges.length>0?(
                 <div className="tw" style={{marginTop:14}}>
-                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>Amount</th><th>When</th><th>Tx</th></tr></thead><tbody>
+                  <table><thead><tr><th>#</th><th>Token</th><th>Action</th><th>Risk</th><th>USDC Settled</th><th>When</th><th>Tx</th></tr></thead><tbody>
                     {hedges.map((h,i)=>{
                       // h.tx_hash is the REAL executeHedge transaction hash
                       // (cached in treasury_service when the tx was submitted).
@@ -2554,7 +2554,7 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
           )}
 
           {/* Polymarket signal */}
-          {agentPolymarket && agentPolymarket.count > 0 && (
+          {agentPolymarket && (
             <div className="sec">
               <div className="sh">
                 <h2><Globe size={16} color="var(--cyan)"/> Polymarket · real-money prediction markets</h2>
@@ -2566,10 +2566,11 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
                     <div style={{fontSize:11,color:'var(--text3)',fontWeight:700,textTransform:'uppercase'}}>Tail-Risk Score</div>
                     <div style={{fontSize:22,fontWeight:900,color:agentPolymarket.summary?.score>=60?'var(--red)':agentPolymarket.summary?.score>=40?'var(--yellow)':'var(--green)'}}>{agentPolymarket.summary?.score||'—'}/100</div>
                   </div>
-                  <div style={{fontSize:11,color:'var(--text3)'}}>{agentPolymarket.count} active crypto markets</div>
+                  <div style={{fontSize:11,color:'var(--text3)'}}>{agentPolymarket.count || 0} active crypto markets after strict filtering</div>
                 </div>
-                <div style={{display:'flex',flexDirection:'column',gap:6}}>
-                  {(agentPolymarket.markets||[]).slice(0,5).map((m,i)=>(
+                {(agentPolymarket.markets||[]).length ? (
+                  <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                    {(agentPolymarket.markets||[]).slice(0,5).map((m,i)=>(
                     <a key={i} href={m.url} target="_blank" rel="noopener" style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 10px',background:'var(--bg3)',borderRadius:6,textDecoration:'none',color:'inherit'}}>
                       <div style={{fontSize:12,flex:1,marginRight:10}}>{m.question.length>90?m.question.slice(0,90)+'…':m.question}</div>
                       <div style={{display:'flex',gap:10,alignItems:'center'}}>
@@ -2577,8 +2578,13 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
                         <span style={{fontWeight:700,fontSize:13,color:m.implied_pct>=70?'var(--green)':m.implied_pct<=30?'var(--red)':'var(--yellow)',minWidth:50,textAlign:'right'}}>{m.implied_pct}%</span>
                       </div>
                     </a>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{padding:12,borderRadius:'var(--r3)',background:'var(--bg3)',fontSize:12,color:'var(--text2)'}}>
+                    No high-confidence crypto-specific Polymarket contracts passed the strict filter in this polling window. The signal is still active; it contributes when markets mention BTC, ETH, Solana, DeFi, stablecoins, ETFs, memecoins, or protocol-specific terms.
+                  </div>
+                )}
               </div>
             </div>
           )}

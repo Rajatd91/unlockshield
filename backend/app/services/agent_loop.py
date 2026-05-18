@@ -122,6 +122,22 @@ class PositionState:
     def all(self) -> Dict[str, Dict]:
         return {t: dict(s) for t, s in self.positions.items() if s["actions_taken"] > 0}
 
+    def hydrate_from_treasury(self, hedges: List[Dict]):
+        """Rebuild in-memory exposure from AgentTreasury history after restarts."""
+        if getattr(self, "_hydrated_from_treasury", False):
+            return
+        for h in hedges:
+            token = h.get("token")
+            amount = float(h.get("amount_usd") or 0)
+            if not token or amount <= 0:
+                continue
+            state = self.positions[token]
+            state["hedged_usd"] += amount
+            state["actions_taken"] += 1
+            state["last_action"] = h.get("action")
+            state["latest_tx_hash"] = h.get("tx_hash")
+        self._hydrated_from_treasury = True
+
 
 position_state = PositionState()
 
@@ -138,6 +154,18 @@ def _strategy_for(risk_score: int) -> str:
     if risk_score >= 25:
         return "REDUCE_POSITION"
     return "HOLD"
+
+
+def _tier_strategy(tier: str, risk_score: int, source: str) -> str:
+    """Map risk into a realistic portfolio action for each strategy sleeve."""
+    base = _strategy_for(risk_score)
+    if base == "HOLD":
+        return base
+    if tier == "large" and risk_score < 55:
+        return "SHORT_HEDGE"
+    if tier == "small" and risk_score >= 28 and source in ("memecoin_watchlist", "dex_anomaly", "whale_movement"):
+        return "DCA_EXIT"
+    return base
 
 
 def _regime_multiplier(regime: str) -> float:
@@ -241,6 +269,8 @@ async def _agent_cycle():
 
     # ─ Step 1: Market regime check ─────────────────────────────────────────
     ctx = await _fetch_market_context()
+    if treasury_service.is_configured():
+        position_state.hydrate_from_treasury(treasury_service.recent_hedges(limit=250))
     regime = ctx["regime"]
     rmult = _regime_multiplier(regime)
 
@@ -473,7 +503,7 @@ async def _process_candidate(c: Candidate, ctx: Dict, composite=None) -> Dict:
     unlock = _UnlockShim(token, days)
 
     risk = int(round(composite.composite_score))
-    strategy = _strategy_for(risk)
+    strategy = _tier_strategy(c.tier, risk, c.source)
     predicted_impact = composite.predicted_impact_pct
     confidence = composite.confidence
     pos = position_state.get(unlock.token_symbol)

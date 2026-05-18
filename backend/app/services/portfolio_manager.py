@@ -57,17 +57,17 @@ LARGE_CAP_TIER = TierConfig(
     code="large",
     action_threshold=12,
     hedge_min_risk=18,
-    base_hedge_usd=80.0,
-    max_position_usd=400.0,
-    description="Systematic risk hedges on top-10 tokens — small, frequent, low conviction needed",
+    base_hedge_usd=180.0,
+    max_position_usd=850.0,
+    description="Systematic beta hedges on top-10 tokens — core risk book with higher notional coverage",
 )
 MID_CAP_TIER = TierConfig(
     name="Mid Cap",
     code="mid",
     action_threshold=15,
     hedge_min_risk=20,
-    base_hedge_usd=150.0,
-    max_position_usd=900.0,
+    base_hedge_usd=120.0,
+    max_position_usd=650.0,
     description="Event-driven unlock hedges on mid-cap universe — primary strategy book",
 )
 SMALL_CAP_TIER = TierConfig(
@@ -75,8 +75,8 @@ SMALL_CAP_TIER = TierConfig(
     code="small",
     action_threshold=20,
     hedge_min_risk=28,
-    base_hedge_usd=100.0,
-    max_position_usd=500.0,
+    base_hedge_usd=80.0,
+    max_position_usd=350.0,
     description="Idiosyncratic small-cap hedges driven by whale flow / DEX anomaly signals",
 )
 
