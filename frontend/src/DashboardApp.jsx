@@ -15,17 +15,26 @@ const KITE_FALLBACKS = {
   usdc: '0xe48084773d0e60b6272008a2F87B36Ccf1d8eB02',
 }
 const fetchJson = async (path, fallback, timeoutMs = 9000) => {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
-  try {
-    const res = await fetch(`${API}${path}`, { signal: ctrl.signal })
-    if (!res.ok) return fallback
-    return await res.json()
-  } catch {
-    return fallback
-  } finally {
-    clearTimeout(timer)
+  // Auto-retry once with a longer timeout — Render free tier sleeps,
+  // so the first request after idle takes ~30-60s while subsequent are instant.
+  const attempt = async (ms) => {
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), ms)
+    try {
+      const res = await fetch(`${API}${path}`, { signal: ctrl.signal })
+      if (!res.ok) return null
+      return await res.json()
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
   }
+  const r1 = await attempt(timeoutMs)
+  if (r1 != null) return r1
+  // First attempt failed — backend might be cold-starting. Retry with longer timeout.
+  const r2 = await attempt(Math.max(timeoutMs, 70000))
+  return r2 != null ? r2 : fallback
 }
 const fetchExternalJson = async (url, fallback, timeoutMs = 12000) => {
   const ctrl = new AbortController()
@@ -2396,15 +2405,23 @@ function App() {
           boot:<Cpu size={13} color="var(--green)"/>,
           idle:<Clock size={13} color="var(--text3)"/>,
         }
-        const hasKind = (...kinds) => events.some(e => kinds.includes(e.kind))
+        // Find the most recent cycle_start so we only count stages that
+        // fired in the CURRENT cycle (not stale events from old hedges).
+        const latestCycleStart = events.find(e => e.kind === 'cycle_start')
+        const latestCycleComplete = events.find(e => e.kind === 'cycle_complete')
+        // Events newest-first. A stage "fired in current cycle" means the
+        // event index is BEFORE the latest cycle_start in the (newest-first) array.
+        const cycleStartIdx = events.findIndex(e => e.kind === 'cycle_start')
+        const currentCycleEvents = cycleStartIdx >= 0 ? events.slice(0, cycleStartIdx + 1) : events.slice(0, 0)
+        const cycleHas = (...kinds) => currentCycleEvents.some(e => kinds.includes(e.kind))
         const stageStatus = (done, current) => done ? 'complete' : current ? 'current' : 'pending'
         const pipelineStages = [
-          {n:'Monitor', tag:'LIVE DATA', icon:<Globe size={14}/>, status:stageStatus(hasKind('regime_check','scan_summary'), hasKind('cycle_start'))},
-          {n:'Score', tag:'12-FACTOR', icon:<BarChart3 size={14}/>, status:stageStatus(hasKind('signal_breakdown'), hasKind('scan'))},
-          {n:'Simulate', tag:'RS-GARCH', icon:<Activity size={14}/>, status:stageStatus(hasKind('stress_run'), hasKind('reasoning'))},
-          {n:'Commit', tag:'KITE ORACLE', icon:<Lock size={14}/>, status:stageStatus(hasKind('commit','skip_commit'), hasKind('stress_run'))},
-          {n:'Execute', tag:'USDC POLICY', icon:<Zap size={14}/>, status:stageStatus(hasKind('hedge','hedge_blocked','position_check','policy_floor'), hasKind('commit','skip_commit'))},
-          {n:'Verify', tag:'REPUTATION', icon:<CheckCircle size={14}/>, status:stageStatus(hasKind('reveal','treasury_sync') || !!latestHedge, hasKind('hedge'))},
+          {n:'Monitor', tag:'LIVE DATA', icon:<Globe size={14}/>, status:stageStatus(cycleHas('regime_check'), cycleHas('cycle_start'))},
+          {n:'Score', tag:'12-FACTOR', icon:<BarChart3 size={14}/>, status:stageStatus(cycleHas('signal_breakdown'), cycleHas('scan_summary','scan'))},
+          {n:'Simulate', tag:'RS-GARCH', icon:<Activity size={14}/>, status:stageStatus(cycleHas('stress_run'), cycleHas('reasoning','signal_breakdown'))},
+          {n:'Commit', tag:'KITE ORACLE', icon:<Lock size={14}/>, status:stageStatus(cycleHas('commit','skip_commit'), cycleHas('stress_run','reasoning'))},
+          {n:'Execute', tag:'USDC POLICY', icon:<Zap size={14}/>, status:stageStatus(cycleHas('hedge','hedge_blocked','position_check','hold_position'), cycleHas('commit','skip_commit'))},
+          {n:'Verify', tag:'REPUTATION', icon:<CheckCircle size={14}/>, status:stageStatus(cycleHas('cycle_complete','position_summary','reveal'), cycleHas('hedge','hedge_blocked'))},
         ]
         const latestSignal = events.find(e => e.kind === 'signal_breakdown')
         const latestPolicyEvent = events.find(e => ['hedge','hedge_blocked','policy_floor','position_check'].includes(e.kind))
