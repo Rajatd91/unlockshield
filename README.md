@@ -213,6 +213,7 @@ cp .env.example .env
 # In .env set:
 #   CONTRACT_ADDRESS, AGENT_PRIVATE_KEY (must match the deploy wallet)
 #   USDC_ADDRESS, TREASURY_ADDRESS
+#   KITE_PASSPORT_ADDRESS=0xD232F1F3c569644F455254A637a90b60408e3f32
 #   AGENT_LOOP_ENABLED=true     (default; set to false to disable autonomy)
 #   AGENT_LOOP_INTERVAL=90      (seconds between cycles)
 uvicorn app.main:app --reload --port 8000

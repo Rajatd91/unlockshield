@@ -191,12 +191,15 @@ async def get_agent_passport_manifest():
     from app.services.treasury_service import treasury_service
     passport = treasury_service.passport()
     contract_address = os.getenv("CONTRACT_ADDRESS", "")
+    passport_wallet = os.getenv("KITE_PASSPORT_ADDRESS", "0xD232F1F3c569644F455254A637a90b60408e3f32")
     return {
         "passport_mode": "Kite Agent Passport compatible",
-        "official_passport_note": "Ready to map into Kite Passport MCP/OAuth sessions when the account is provisioned.",
+        "official_passport_note": "Passport account is created. Full SDK/API signing is session/passkey based; current MVP maps Passport identity to the on-chain AgentTreasury policy.",
         "agent_identity": {
-            "agent_address": (passport or {}).get("agent_address"),
-            "agent_explorer": (passport or {}).get("agent_explorer"),
+            "operator_address": (passport or {}).get("agent_address"),
+            "operator_explorer": (passport or {}).get("agent_explorer"),
+            "passport_wallet": passport_wallet,
+            "passport_explorer": f"https://testnet.kitescan.ai/address/{passport_wallet}" if passport_wallet else None,
             "oracle_contract": contract_address,
             "oracle_explorer": f"https://testnet.kitescan.ai/address/{contract_address}" if contract_address else None,
         },

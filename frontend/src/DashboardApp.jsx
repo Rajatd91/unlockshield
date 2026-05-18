@@ -2336,6 +2336,7 @@ function App() {
         const latestHedge = hedges.find(h => h.tx_hash) || hedges[0]
         const latestHedgeUrl = kiteScanUrl(latestHedge?.tx_hash)
         const oracleExplorer = agentPassport?.agent_identity?.oracle_explorer || agent?.kite_contract_explorer
+        const passportExplorer = agentPassport?.agent_identity?.passport_explorer
         const treasuryExplorer = agentPassport?.delegated_authority?.treasury_explorer || passport?.treasury_explorer
         const staleLoop = loop?.last_cycle_at && ((Date.now() - new Date(loop.last_cycle_at).getTime()) > (Math.max(loop?.interval_seconds||90,90) * 2500))
         const kindIcon = {
@@ -2399,7 +2400,12 @@ function App() {
                   Loop looks stale: last cycle was {fmtAgo(loop.last_cycle_at)}. Render may be redeploying or sleeping; refresh after 60 seconds.
                 </div>
               )}
-              <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:10}}>
+              <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10}}>
+                <a href={passportExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
+                  <div className="bl">Passport Wallet</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--green)',fontFamily:'monospace'}}>{shortHash(agentPassport?.agent_identity?.passport_wallet)}</div>
+                  <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>delegator identity ↗</div>
+                </a>
                 <a href={oracleExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
                   <div className="bl">Oracle Contract</div>
                   <div className="bv" style={{fontSize:13,color:'var(--purple)',fontFamily:'monospace'}}>{shortHash(agentPassport?.agent_identity?.oracle_contract || agent?.kite_contract_address)}</div>
@@ -2422,7 +2428,7 @@ function App() {
                 </div>
               </div>
               <div style={{marginTop:12,fontSize:11,color:'var(--text2)',lineHeight:1.6}}>
-                Agent Passport use in this MVP: identity, delegated budget, spending policy, USDC payment rail, and public audit surface. The production Kite Passport SDK can map this manifest into official user-authorized sessions; today the same controls are enforced by AgentTreasury on Kite.
+                Agent Passport use in this MVP: your Passport wallet is the delegator/payment identity; the MetaMask operator signs the current treasury transactions. The production Kite Passport SDK can map this manifest into official passkey-approved sessions; today the same budget and execution controls are enforced by AgentTreasury on Kite.
               </div>
             </div>
           </div>
