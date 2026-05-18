@@ -268,10 +268,20 @@ class TreasuryService:
                 ref_hex = "0x" + h[7].hex() if isinstance(h[7], bytes) else _hex_with_prefix(h[7])
                 hedge_id = int(h[0])
                 tx_hash = self._tx_hash_cache.get(hedge_id)
+                raw_action = h[2]
+                # Early demo rows accidentally labelled moderate paid actions as
+                # HOLD even though USDC moved. Preserve the raw contract string
+                # for auditability, but expose a sane product label.
+                action = (
+                    "REDUCE_POSITION"
+                    if raw_action == "HOLD" and float(h[4]) > 0 and int(h[3]) >= 25
+                    else raw_action
+                )
                 out.append({
                     "id": hedge_id,
                     "token": h[1],
-                    "action": h[2],
+                    "action": action,
+                    "raw_action": raw_action,
                     "risk_score": int(h[3]),
                     "amount_usd": float(h[4]) / 1_000_000,
                     "recipient": h[5],

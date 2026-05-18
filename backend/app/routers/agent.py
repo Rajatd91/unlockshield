@@ -254,7 +254,41 @@ async def get_portfolio_view():
     """
     from app.services.portfolio_manager import LARGE_CAP_TICKERS, MID_CAP_TICKERS, TIERS, _tier_for_token
     from app.services.agent_loop import position_state
+    from app.services.treasury_service import treasury_service
+
     portfolio = position_state.all()
+    onchain_positions: Dict[str, Dict] = {}
+    for h in treasury_service.recent_hedges(limit=250):
+        amount = float(h.get("amount_usd") or 0)
+        if amount <= 0:
+            continue
+        token = h.get("token")
+        if not token:
+            continue
+        p = onchain_positions.setdefault(token, {
+            "hedged_usd": 0.0,
+            "actions_taken": 0,
+            "last_predicted": None,
+            "last_action": None,
+            "latest_tx_hash": None,
+        })
+        p["hedged_usd"] += amount
+        p["actions_taken"] += 1
+        if p["last_action"] is None:
+            p["last_action"] = h.get("action")
+            p["latest_tx_hash"] = h.get("tx_hash")
+
+    # Merge in-memory state with the on-chain treasury book. Render restarts
+    # wipe memory, but contract history is the source of truth for positions.
+    for token, p in onchain_positions.items():
+        if token in portfolio:
+            portfolio[token]["hedged_usd"] = max(float(portfolio[token].get("hedged_usd") or 0), p["hedged_usd"])
+            portfolio[token]["actions_taken"] = max(int(portfolio[token].get("actions_taken") or 0), p["actions_taken"])
+            portfolio[token]["last_action"] = p["last_action"]
+            portfolio[token]["latest_tx_hash"] = p["latest_tx_hash"]
+        else:
+            portfolio[token] = p
+
     by_tier: Dict[str, Dict] = {
         t: {"label": cfg.name, "config": {
             "action_threshold": cfg.action_threshold,
@@ -273,7 +307,11 @@ async def get_portfolio_view():
             "hedged_usd": p["hedged_usd"],
             "actions_taken": p["actions_taken"],
             "last_predicted_pct": p.get("last_predicted"),
+            "last_action": p.get("last_action"),
+            "latest_tx_hash": p.get("latest_tx_hash"),
         })
+    for tier_data in by_tier.values():
+        tier_data["positions"].sort(key=lambda p: p["hedged_usd"], reverse=True)
     return {
         "tiers": by_tier,
         "watchlists": {
