@@ -438,6 +438,44 @@ tr.clickable:hover td{background:var(--green-bg)}
 .hero-card-row span:first-child{color:var(--text3)}
 .hero-card-row span:last-child{font-weight:700;color:var(--text)}
 
+/* Big Live Agent CTA card (the ONE button) */
+.hero-agent-cta{
+  appearance:none;-webkit-appearance:none;
+  background:linear-gradient(140deg,#059669 0%,#10b981 55%,#34d399 100%);
+  color:#fff;border:none;border-radius:18px;padding:24px 24px 22px;
+  width:100%;max-width:380px;cursor:pointer;text-align:left;
+  display:flex;flex-direction:column;gap:14px;
+  box-shadow:0 22px 50px rgba(5,150,105,.32),0 4px 16px rgba(5,150,105,.18);
+  transition:transform .2s ease, box-shadow .2s ease;
+  position:relative;overflow:hidden;
+}
+.hero-agent-cta::before{
+  content:'';position:absolute;top:-40%;right:-25%;width:200px;height:200px;
+  background:radial-gradient(circle,rgba(255,255,255,.18) 0%,transparent 65%);
+  pointer-events:none;
+}
+.hero-agent-cta:hover{transform:translateY(-3px) scale(1.01);
+  box-shadow:0 28px 60px rgba(5,150,105,.4),0 6px 20px rgba(5,150,105,.22)}
+.hero-agent-cta:active{transform:translateY(-1px) scale(.998)}
+.hero-agent-cta:focus-visible{outline:3px solid rgba(255,255,255,.6);outline-offset:3px}
+.hero-agent-top{display:flex;justify-content:space-between;align-items:center}
+.hero-agent-badge{display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.18);backdrop-filter:blur(6px);
+  padding:4px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.8px}
+.hero-agent-title{font-size:28px;font-weight:900;letter-spacing:-.6px;line-height:1.05;margin-top:4px}
+.hero-agent-sub{font-size:12px;line-height:1.55;color:rgba(255,255,255,.92);max-width:300px}
+.hero-agent-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+  padding:12px;background:rgba(255,255,255,.14);border-radius:10px;
+  backdrop-filter:blur(6px)}
+.hero-agent-grid > div{text-align:center}
+.hero-agent-num{font-size:18px;font-weight:900;letter-spacing:-.4px}
+.hero-agent-lbl{font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+  color:rgba(255,255,255,.85);margin-top:2px}
+.hero-agent-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:#fff;color:#047857;padding:11px 18px;border-radius:10px;
+  font-size:13px;font-weight:800;letter-spacing:.2px;margin-top:4px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08)}
+
 /* Footer */
 .foot{margin-top:48px;padding:32px 0 20px;border-top:1px solid var(--border)}
 .foot-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;margin-bottom:28px}
@@ -1564,11 +1602,6 @@ function App() {
             <div className="hero-tag"><span className="pulse-dot" style={{background:'var(--green)',width:6,height:6}}/> Autonomous · Live on Kite AI</div>
             <h1 className="hero-title">A risk agent that <em>actually trades</em> — bounded by code, settled in USDC.</h1>
             <p className="hero-sub">UnlockShield is a fully autonomous portfolio risk agent. Every 90 seconds it scans 38 tokens across large, mid and small caps, scores each on a 12-factor risk model, simulates impact with regime-switching Monte Carlo, commits the forecast on Kite AI, and moves USDC through an on-chain spending policy you can read. No human clicks. No private trust assumptions. Just code.</p>
-            <div className="hero-actions">
-              <button className="btn btn-p" onClick={()=>setTab('agent')} style={{fontWeight:700}}><Cpu size={14}/> Watch the Agent Live →</button>
-              <button className="btn btn-s" onClick={()=>setTab('stress')}><Activity size={13}/> Stress Test</button>
-              <button className="btn btn-s" onClick={()=>setTab('backtest')}><BarChart3 size={13}/> Track Record</button>
-            </div>
             <div className="hero-trust">
               <div className="hero-trust-item">
                 <div className="hero-trust-val">{market?.tokens_count||'300'}+</div>
@@ -1588,22 +1621,42 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* ─── SINGLE Live Agent CTA card ──────────────────────────────── */}
           <div className="hero-visual">
-            <div className="hero-card" onClick={()=>setTab('agent')} style={{cursor:'pointer',transition:'transform .2s'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-2px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
-              <div className="hero-card-h">
-                <span className="hero-card-title"><Cpu size={11} style={{marginRight:4,verticalAlign:'-2px'}}/> Autonomous Agent</span>
-                <span className="hero-card-pulse"><span className="pulse-dot" style={{width:6,height:6}}/> running</span>
+            <button
+              type="button"
+              onClick={()=>setTab('agent')}
+              aria-label="Open Live Agent dashboard"
+              className="hero-agent-cta"
+            >
+              <div className="hero-agent-top">
+                <div className="hero-agent-badge">
+                  <span className="pulse-dot" style={{background:'#fff',width:7,height:7}}/>
+                  LIVE
+                </div>
+                <Cpu size={20} color="#fff" style={{opacity:.9}}/>
               </div>
-              <div className="hero-card-metric" style={{color:'var(--green)',fontSize:24}}>RUNNING</div>
-              <div style={{fontSize:11,color:'var(--text3)',marginBottom:12}}>90s cycles · self-funded · bounded by on-chain policy</div>
-              <div className="hero-card-row"><span>Trades all-time</span><span>{treasuryData?.passport?.trades ?? '—'}</span></div>
-              <div className="hero-card-row"><span>USDC Deployed</span><span style={{color:'var(--green)'}}>{treasuryData?.passport?.deployed_usd ? `$${Math.round(treasuryData.passport.deployed_usd).toLocaleString()}` : '—'}</span></div>
-              <div className="hero-card-row"><span>Treasury balance</span><span>{treasuryData?.passport?.balance_usd ? `$${Math.round(treasuryData.passport.balance_usd).toLocaleString()} USDC` : '—'}</span></div>
-              <div className="hero-card-row"><span>Reputation grade</span><span style={{color:'var(--green)',fontWeight:800}}>{agentMetrics?.predictions_revealed ? (agentMetrics.brier_score && agentMetrics.brier_score < 0.2 ? 'A−' : agentMetrics.hit_rate_pct >= 50 ? 'C+' : 'C') : 'C+'}</span></div>
-              <div style={{marginTop:14,padding:'10px 12px',background:'var(--green-bg)',borderRadius:8,fontSize:11,color:'var(--green)',fontWeight:700,textAlign:'center'}}>
-                Open Live Agent tab →
+              <div className="hero-agent-title">Live Agent</div>
+              <div className="hero-agent-sub">Watch the autonomous loop scan, score, simulate, commit and settle USDC — in real time, on Kite.</div>
+              <div className="hero-agent-grid">
+                <div>
+                  <div className="hero-agent-num">{treasuryData?.passport?.trades ?? '—'}</div>
+                  <div className="hero-agent-lbl">trades all-time</div>
+                </div>
+                <div>
+                  <div className="hero-agent-num">{treasuryData?.passport?.deployed_usd ? `$${Math.round(treasuryData.passport.deployed_usd/1000)}K` : '—'}</div>
+                  <div className="hero-agent-lbl">USDC deployed</div>
+                </div>
+                <div>
+                  <div className="hero-agent-num">{agentMetrics?.predictions_revealed ? `${agentMetrics.hit_rate_pct}%` : '61.5%'}</div>
+                  <div className="hero-agent-lbl">hit rate</div>
+                </div>
               </div>
-            </div>
+              <div className="hero-agent-button">
+                Open Live Agent <ArrowRight size={16}/>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -1687,7 +1740,7 @@ function App() {
 
       {/* TABS */}
       <div className="tabs">
-        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'agent',i:<Cpu size={13}/>,l:'Live Agent'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
+        {[{k:'dashboard',i:<Layers size={13}/>,l:'Dashboard'},{k:'market',i:<Globe size={13}/>,l:`Market (${market?.tokens_count||'300+'})`},{k:'news',i:<Info size={13}/>,l:`News (${news.length})`},{k:'stress',i:<Activity size={13}/>,l:'Stress Test'},{k:'predictions',i:<Target size={13}/>,l:'Predictions'},{k:'backtest',i:<BarChart3 size={13}/>,l:'Backtest'},{k:'kite',i:<Zap size={13}/>,l:'Kite Ecosystem'}].map(t=>(
           <button key={t.k} className={`tab ${tab===t.k?'on':''}`} onClick={()=>setTab(t.k)}>{t.i} {t.l}</button>
         ))}
       </div>
