@@ -317,7 +317,7 @@ The dissertation formalises the RS-GARCH + jump-diffusion methodology, evaluates
 
 ## Team
 
-**Rajat Durge** — MSc Emerging Digital Technologies, University College London (UCL). Dissertation on AMM wrapper stress testing under realistic market volatility. Industry partner: NTT Data.
+**Rajat Durge** — MSc Emerging Digital Technologies, University College London (UCL).
 
 Contact: rajatdurge11@gmail.com · GitHub: [@Rajatd91](https://github.com/Rajatd91)
 
