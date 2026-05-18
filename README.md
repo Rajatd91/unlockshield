@@ -298,14 +298,6 @@ Honest accounting for hackathon judges:
 
 ---
 
-## Dissertation & Research Foundation
-
-This project is the engineering counterpart to the author's MSc dissertation at University College London (UCL):
-
-> **"Stress Testing AMM Wrappers Under Realistic Market Volatility — Extending simulation frameworks to include stochastic price paths and volatility shocks, analysing wrapper performance and robustness."**
-
-The dissertation formalises the RS-GARCH + jump-diffusion methodology, evaluates it against production AMM wrappers (Arrakis V2, Gamma Strategies), and validates predictions empirically against 20+ historical unlock events. The hackathon prototype demonstrates the methodology is feasible and useful in production.
-
 **Academic references:**
 - Bollerslev (1986) — GARCH(1,1) volatility clustering
 - Merton (1976) — Jump-diffusion for sudden price shocks
