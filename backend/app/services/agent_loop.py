@@ -52,6 +52,7 @@ HEDGE_DELTA_USD = 50         # top up only if gap to target ≥ $50
 # Strategy library
 STRATEGY_DESC = {
     "FULL_EXIT":   "Exit entire position. Highest urgency tier — catastrophic tail risk.",
+    "REDUCE_POSITION": "Partial hedge/reduction. Moderate risk tier — trims exposure without abandoning the asset.",
     "SHORT_HEDGE": "Delta-neutral short to cap downside while keeping upside on rebound.",
     "DCA_EXIT":    "Time-weighted average exit, distribute over days to soften slippage.",
     "HOLD":        "No action. Risk under threshold or already adequately hedged.",
@@ -134,6 +135,8 @@ def _strategy_for(risk_score: int) -> str:
         return "SHORT_HEDGE"
     if risk_score >= 35:
         return "DCA_EXIT"
+    if risk_score >= 25:
+        return "REDUCE_POSITION"
     return "HOLD"
 
 
