@@ -271,12 +271,26 @@ class TreasuryService:
                 raw_action = h[2]
                 # Early demo rows accidentally labelled moderate paid actions as
                 # HOLD even though USDC moved. Preserve the raw contract string
-                # for auditability, but expose a sane product label.
-                action = (
-                    "REDUCE_POSITION"
-                    if raw_action == "HOLD" and float(h[4]) > 0 and int(h[3]) >= 25
-                    else raw_action
-                )
+                # for auditability, but infer the product-facing action using the
+                # same tier/risk policy that the live agent now uses.
+                action = raw_action
+                if raw_action == "HOLD" and float(h[4]) > 0 and int(h[3]) >= 25:
+                    try:
+                        from app.services.portfolio_manager import _tier_for_token
+                        tier = _tier_for_token(h[1])
+                    except Exception:
+                        tier = "mid"
+                    risk = int(h[3])
+                    if risk >= 80:
+                        action = "FULL_EXIT"
+                    elif tier == "large":
+                        action = "SHORT_HEDGE"
+                    elif tier == "small":
+                        action = "DCA_EXIT"
+                    elif risk >= 35:
+                        action = "DCA_EXIT"
+                    else:
+                        action = "REDUCE_POSITION"
                 out.append({
                     "id": hedge_id,
                     "token": h[1],

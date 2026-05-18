@@ -8,6 +8,12 @@ import {
 } from 'lucide-react'
 
 const API = import.meta.env.VITE_API_URL || ''
+const KITE_FALLBACKS = {
+  passport: '0xD232F1F3c569644F455254A637a90b60408e3f32',
+  oracle: '0xD2d642Ea44973d90Bb0a6f403e8A4815020Fdd79',
+  treasury: '0xf6D48bDACadA5105808d04B3719605B3AfbAf9Bb',
+  usdc: '0xe48084773d0e60b6272008a2F87B36Ccf1d8eB02',
+}
 const fetchJson = async (path, fallback, timeoutMs = 9000) => {
   const ctrl = new AbortController()
   const timer = setTimeout(() => ctrl.abort(), timeoutMs)
@@ -2335,9 +2341,12 @@ function App() {
         const levelColor = {success:'var(--green)',warn:'var(--yellow)',error:'var(--red)',info:'var(--text2)'}
         const latestHedge = hedges.find(h => h.tx_hash) || hedges[0]
         const latestHedgeUrl = kiteScanUrl(latestHedge?.tx_hash)
-        const oracleExplorer = agentPassport?.agent_identity?.oracle_explorer || agent?.kite_contract_explorer
-        const passportExplorer = agentPassport?.agent_identity?.passport_explorer
-        const treasuryExplorer = agentPassport?.delegated_authority?.treasury_explorer || passport?.treasury_explorer
+        const passportAddress = agentPassport?.agent_identity?.passport_wallet || KITE_FALLBACKS.passport
+        const oracleAddress = agentPassport?.agent_identity?.oracle_contract || agent?.kite_contract_address || KITE_FALLBACKS.oracle
+        const treasuryAddress = passport?.treasury_address || agentPassport?.delegated_authority?.treasury_address || KITE_FALLBACKS.treasury
+        const oracleExplorer = agentPassport?.agent_identity?.oracle_explorer || agent?.kite_contract_explorer || `https://testnet.kitescan.ai/address/${KITE_FALLBACKS.oracle}`
+        const passportExplorer = agentPassport?.agent_identity?.passport_explorer || `https://testnet.kitescan.ai/address/${KITE_FALLBACKS.passport}`
+        const treasuryExplorer = agentPassport?.delegated_authority?.treasury_explorer || passport?.treasury_explorer || `https://testnet.kitescan.ai/address/${KITE_FALLBACKS.treasury}`
         const staleLoop = loop?.last_cycle_at && ((Date.now() - new Date(loop.last_cycle_at).getTime()) > (Math.max(loop?.interval_seconds||90,90) * 2500))
         const kindIcon = {
           cycle_start:<RefreshCw size={13} className="spin" color="var(--cyan)"/>,
@@ -2357,6 +2366,7 @@ function App() {
           hold_position:<Clock size={13} color="var(--text2)"/>,
           hedge:<Zap size={13} color="var(--green)"/>,
           hedge_blocked:<AlertTriangle size={13} color="var(--yellow)"/>,
+          treasury_sync:<Database size={13} color="var(--cyan)"/>,
           position_summary:<Database size={13} color="var(--cyan)"/>,
           reveal:<Eye size={13} color="var(--green)"/>,
           no_reveals:<Clock size={13} color="var(--text3)"/>,
@@ -2381,8 +2391,8 @@ function App() {
                   </div>
                 </div>
                 <div style={{display:'flex',gap:8}}>
-                  <a className="btn btn-s btn-sm" href={passport?.agent_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Agent on KiteScan</a>
-                  <a className="btn btn-s btn-sm" href={passport?.treasury_explorer||'#'} target="_blank" rel="noopener"><ExternalLink size={12}/> Treasury on KiteScan</a>
+                  <a className="btn btn-s btn-sm" href={passport?.agent_explorer||passportExplorer} target="_blank" rel="noopener"><ExternalLink size={12}/> Agent on KiteScan</a>
+                  <a className="btn btn-s btn-sm" href={passport?.treasury_explorer||treasuryExplorer} target="_blank" rel="noopener"><ExternalLink size={12}/> Treasury on KiteScan</a>
                 </div>
               </div>
             </div>
@@ -2403,17 +2413,17 @@ function App() {
               <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(170px,1fr))',gap:10}}>
                 <a href={passportExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
                   <div className="bl">Passport Wallet</div>
-                  <div className="bv" style={{fontSize:13,color:'var(--green)',fontFamily:'monospace'}}>{shortHash(agentPassport?.agent_identity?.passport_wallet)}</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--green)',fontFamily:'monospace'}}>{shortHash(passportAddress)}</div>
                   <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>delegator identity ↗</div>
                 </a>
                 <a href={oracleExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
                   <div className="bl">Oracle Contract</div>
-                  <div className="bv" style={{fontSize:13,color:'var(--purple)',fontFamily:'monospace'}}>{shortHash(agentPassport?.agent_identity?.oracle_contract || agent?.kite_contract_address)}</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--purple)',fontFamily:'monospace'}}>{shortHash(oracleAddress)}</div>
                   <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>commit-reveal ↗</div>
                 </a>
                 <a href={treasuryExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
                   <div className="bl">Treasury Contract</div>
-                  <div className="bv" style={{fontSize:13,color:'var(--cyan)',fontFamily:'monospace'}}>{shortHash(passport?.treasury_address || agentPassport?.delegated_authority?.treasury_address)}</div>
+                  <div className="bv" style={{fontSize:13,color:'var(--cyan)',fontFamily:'monospace'}}>{shortHash(treasuryAddress)}</div>
                   <div style={{fontSize:10,color:'var(--green)',fontWeight:700,marginTop:3}}>USDC vault ↗</div>
                 </a>
                 <a href={latestHedgeUrl||treasuryExplorer||'#'} target="_blank" rel="noopener" className="bts" style={{textDecoration:'none',color:'inherit'}}>
@@ -2543,9 +2553,15 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
                       {tier.positions && tier.positions.length>0 ? (
                         <div style={{display:'flex',flexDirection:'column',gap:4}}>
                           {tier.positions.slice(0,5).map(p=>(
-                            <div key={p.token} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'4px 8px',background:'var(--bg3)',borderRadius:4}}>
-                              <span style={{fontWeight:700}}>{p.token}</span>
-                              <span style={{color:'var(--green)',fontWeight:700}}>${Math.round(p.hedged_usd)}</span>
+                            <div key={p.token} title={p.over_cap_usd>0 ? `Historical settled: $${Math.round(p.settled_usd || p.hedged_usd)}. Active risk book capped by tier policy.` : `Active exposure: $${Math.round(p.active_usd || p.hedged_usd)}`} style={{display:'flex',justifyContent:'space-between',fontSize:11,padding:'4px 8px',background:'var(--bg3)',borderRadius:4}}>
+                              <span style={{fontWeight:700,display:'flex',alignItems:'center',gap:5}}>
+                                {p.token}
+                                {p.over_cap_usd>0 && <span style={{fontSize:8,color:'var(--yellow)',fontWeight:800}}>CAPPED</span>}
+                              </span>
+                              <span style={{color:'var(--green)',fontWeight:700}}>
+                                ${Math.round(p.active_usd ?? p.hedged_usd)}
+                                {p.over_cap_usd>0 && <span style={{color:'var(--text3)',fontWeight:500,fontSize:9}}> / ${Math.round(p.settled_usd)}</span>}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -2651,7 +2667,21 @@ npx hardhat run deploy_treasury.js --network kiteTestnet
           {/* Latest signal decomposition — show the agent's "thinking" */}
           {(() => {
             const lastSignal = events.find(e => e.kind === 'signal_breakdown')
-            if(!lastSignal?.detail?.signals) return null
+            if(!lastSignal?.detail?.signals) {
+              return (
+                <div className="sec">
+                  <div className="sh">
+                    <h2><Cpu size={16} color="var(--purple)"/> 12-factor signal decomposition</h2>
+                    <span style={{fontSize:11,color:'var(--text3)'}}>Visible after the first full portfolio scan</span>
+                  </div>
+                  <div className="crd" style={{cursor:'default',padding:14,borderLeft:'3px solid var(--purple)'}}>
+                    <div style={{fontSize:12,color:'var(--text2)',lineHeight:1.6}}>
+                      The live agent is online, but this Render instance has not yet completed a full factor-scoring pass in the current memory window. The next scan will repopulate all 12 factors: unlock pressure, whale flow, DEX anomaly, stablecoin stress, lending risk, macro, regime, regulation, governance, sector contagion, sentiment, and Polymarket conviction.
+                    </div>
+                  </div>
+                </div>
+              )
+            }
             const sigs = lastSignal.detail.signals
             const composite = lastSignal.detail.composite_score
             const tier = composite>=70?'CRITICAL':composite>=55?'HIGH':composite>=40?'ELEVATED':composite>=25?'MODERATE':'LOW'
